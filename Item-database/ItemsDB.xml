@@ -1,0 +1,433 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<itemDatabase version="1.1">
+
+  <!-- =========================================================
+       QUALITY TIERS
+       - Tier 0-3: NOT magical (no magical="true" attributes)
+       - Tier 4-6: magical
+       - Mechanical effects remain the same
+       - Value scaling added via valueMultiplier
+       ========================================================= -->
+  <qualityTiers>
+    <tier id="0" name="Poorly Made" kind="mundane" valueMultiplier="0.4">
+      <weapon attackBonus="-1"/>
+      <armor acBonus="-1"/>
+      <jewelry bonus="0"/>
+    </tier>
+
+    <tier id="1" name="Common" kind="mundane" valueMultiplier="1.0">
+      <weapon attackBonus="0"/>
+      <armor acBonus="0"/>
+      <jewelry bonus="0"/>
+    </tier>
+
+    <tier id="2" name="Well-Crafted" kind="mundane" valueMultiplier="2.0">
+      <weapon attackBonus="+1"/>
+      <armor acBonus="+1"/>
+      <jewelry bonus="+1"/>
+    </tier>
+
+    <tier id="3" name="Masterwork" kind="mundane" valueMultiplier="5.0">
+      <weapon attackBonus="+2"/>
+      <armor acBonus="+2"/>
+      <jewelry bonus="+2"/>
+    </tier>
+
+    <!-- Magical begins at tier 4 ONLY -->
+    <tier id="4" name="Enchanted (+1)" kind="magical" valueMultiplier="15.0">
+      <weapon attackBonus="+1" magical="true"/>
+      <armor acBonus="+1" magical="true"/>
+      <jewelry bonus="+1" magical="true"/>
+    </tier>
+
+    <tier id="5" name="Enchanted (+2)" kind="magical" valueMultiplier="50.0">
+      <weapon attackBonus="+2" magical="true"/>
+      <armor acBonus="+2" magical="true"/>
+      <jewelry bonus="+2" magical="true"/>
+    </tier>
+
+    <tier id="6" name="Enchanted (+3)" kind="magical" valueMultiplier="150.0">
+      <weapon attackBonus="+3" magical="true"/>
+      <armor acBonus="+3" magical="true"/>
+      <jewelry bonus="+3" magical="true"/>
+    </tier>
+  </qualityTiers>
+
+  <!-- =========================================================
+       VARIANT RULES
+       - Supports “comprehensive” generation without exploding the file.
+       - Your generator can:
+         1) pick a baseItem
+         2) pick tier
+         3) apply descriptor (tier 0-3) or suffix +X (tier 4-6)
+         4) compute finalGold = round(baseGold * valueMultiplier)
+       ========================================================= -->
+  <variantRules>
+    <rule id="weaponNaming">
+      <poorlyMade useDescriptors="true"/>
+      <mundane useDescriptors="true"/>
+      <magical suffixPattern=" +{bonus}"/>
+    </rule>
+
+    <rule id="armorNaming">
+      <poorlyMade useDescriptors="true"/>
+      <mundane useDescriptors="true"/>
+      <magical suffixPattern=" +{bonus}"/>
+    </rule>
+
+    <rule id="jewelryNaming">
+      <poorlyMade useDescriptors="true"/>
+      <mundane useDescriptors="true"/>
+      <magical suffixPattern=" +{bonus}"/>
+    </rule>
+
+    <pricingRule id="goldPricing" formula="round(baseGold * tier.valueMultiplier)"/>
+  </variantRules>
+
+  <!-- =========================================================
+       CATEGORIES
+       Weapons / Armor / Jewelry
+       ========================================================= -->
+  <categories>
+
+    <!-- =========================
+         WEAPONS
+         Notes:
+         - baseGold uses 5e PHB baseline costs (GP) where reasonable
+         - material is optional for weapons; included here for descriptor targeting
+         ========================= -->
+    <category id="weapons" name="Weapons">
+      <subCategory id="simple" name="Simple Weapons">
+
+        <group id="simpleMelee" name="Simple Melee">
+          <baseItem id="club" name="Club" weaponClass="simple" rangeType="melee" material="wood" baseGold="0.1"/>
+          <baseItem id="dagger" name="Dagger" weaponClass="simple" rangeType="melee" material="metal" baseGold="2"/>
+          <baseItem id="greatclub" name="Greatclub" weaponClass="simple" rangeType="melee" material="wood" baseGold="0.2"/>
+          <baseItem id="handaxe" name="Handaxe" weaponClass="simple" rangeType="melee" material="metal" baseGold="5"/>
+          <baseItem id="javelin" name="Javelin" weaponClass="simple" rangeType="melee" material="wood" baseGold="0.5"/>
+          <baseItem id="lightHammer" name="Light Hammer" weaponClass="simple" rangeType="melee" material="metal" baseGold="2"/>
+          <baseItem id="mace" name="Mace" weaponClass="simple" rangeType="melee" material="metal" baseGold="5"/>
+          <baseItem id="quarterstaff" name="Quarterstaff" weaponClass="simple" rangeType="melee" material="wood" baseGold="0.2"/>
+          <baseItem id="sickle" name="Sickle" weaponClass="simple" rangeType="melee" material="metal" baseGold="1"/>
+          <baseItem id="spear" name="Spear" weaponClass="simple" rangeType="melee" material="wood" baseGold="1"/>
+        </group>
+
+        <group id="simpleRanged" name="Simple Ranged">
+          <baseItem id="lightCrossbow" name="Light Crossbow" weaponClass="simple" rangeType="ranged" material="wood" baseGold="25"/>
+          <baseItem id="dart" name="Dart" weaponClass="simple" rangeType="ranged" material="metal" baseGold="0.05"/>
+          <baseItem id="shortbow" name="Shortbow" weaponClass="simple" rangeType="ranged" material="wood" baseGold="25"/>
+          <baseItem id="sling" name="Sling" weaponClass="simple" rangeType="ranged" material="cloth" baseGold="0.1"/>
+        </group>
+      </subCategory>
+
+      <subCategory id="martial" name="Martial Weapons">
+
+        <group id="martialMelee" name="Martial Melee">
+          <baseItem id="battleaxe" name="Battleaxe" weaponClass="martial" rangeType="melee" material="metal" baseGold="10"/>
+          <baseItem id="flail" name="Flail" weaponClass="martial" rangeType="melee" material="metal" baseGold="10"/>
+          <baseItem id="glaive" name="Glaive" weaponClass="martial" rangeType="melee" material="metal" baseGold="20"/>
+          <baseItem id="greataxe" name="Greataxe" weaponClass="martial" rangeType="melee" material="metal" baseGold="30"/>
+          <baseItem id="greatsword" name="Greatsword" weaponClass="martial" rangeType="melee" material="metal" baseGold="50"/>
+          <baseItem id="halberd" name="Halberd" weaponClass="martial" rangeType="melee" material="metal" baseGold="20"/>
+          <baseItem id="lance" name="Lance" weaponClass="martial" rangeType="melee" material="wood" baseGold="10"/>
+          <baseItem id="longsword" name="Longsword" weaponClass="martial" rangeType="melee" material="metal" baseGold="15"/>
+          <baseItem id="maul" name="Maul" weaponClass="martial" rangeType="melee" material="wood" baseGold="10"/>
+          <baseItem id="morningstar" name="Morningstar" weaponClass="martial" rangeType="melee" material="metal" baseGold="15"/>
+          <baseItem id="pike" name="Pike" weaponClass="martial" rangeType="melee" material="wood" baseGold="5"/>
+          <baseItem id="rapier" name="Rapier" weaponClass="martial" rangeType="melee" material="metal" baseGold="25"/>
+          <baseItem id="scimitar" name="Scimitar" weaponClass="martial" rangeType="melee" material="metal" baseGold="25"/>
+          <baseItem id="shortsword" name="Shortsword" weaponClass="martial" rangeType="melee" material="metal" baseGold="10"/>
+          <baseItem id="trident" name="Trident" weaponClass="martial" rangeType="melee" material="metal" baseGold="5"/>
+          <baseItem id="warPick" name="War Pick" weaponClass="martial" rangeType="melee" material="metal" baseGold="5"/>
+          <baseItem id="warhammer" name="Warhammer" weaponClass="martial" rangeType="melee" material="metal" baseGold="15"/>
+          <baseItem id="whip" name="Whip" weaponClass="martial" rangeType="melee" material="leather" baseGold="2"/>
+        </group>
+
+        <group id="martialRanged" name="Martial Ranged">
+          <baseItem id="blowgun" name="Blowgun" weaponClass="martial" rangeType="ranged" material="wood" baseGold="10"/>
+          <baseItem id="handCrossbow" name="Hand Crossbow" weaponClass="martial" rangeType="ranged" material="wood" baseGold="75"/>
+          <baseItem id="heavyCrossbow" name="Heavy Crossbow" weaponClass="martial" rangeType="ranged" material="wood" baseGold="50"/>
+          <baseItem id="longbow" name="Longbow" weaponClass="martial" rangeType="ranged" material="wood" baseGold="50"/>
+          <baseItem id="net" name="Net" weaponClass="martial" rangeType="ranged" material="cloth" baseGold="1"/>
+        </group>
+      </subCategory>
+
+      <!-- Apply tiers 0..6 to ALL weapons -->
+      <appliesQuality tierRefs="0,1,2,3,4,5,6" namingRuleRef="weaponNaming" pricingRuleRef="goldPricing"/>
+    </category>
+
+    <!-- =========================
+         ARMOR (slot-based)
+         - Material attribute enables material-specific descriptors (Option 1)
+         - baseGold provides the baseline for your economy scaling (Option 4)
+         ========================= -->
+    <category id="armor" name="Armor">
+
+      <slot id="footwear" name="Footwear">
+        <baseItem id="sandals" name="Sandals" material="cloth" baseGold="0.2"/>
+        <baseItem id="leatherBoots" name="Leather Boots" material="leather" baseGold="5"/>
+        <baseItem id="reinforcedBoots" name="Reinforced Boots" material="leather" baseGold="8"/>
+        <baseItem id="heavyGreaves" name="Heavy Greaves" material="plate" baseGold="15"/>
+      </slot>
+
+      <slot id="leggings" name="Leggings">
+        <baseItem id="clothTrousers" name="Cloth Trousers" material="cloth" baseGold="0.5"/>
+        <baseItem id="leatherLeggings" name="Leather Leggings" material="leather" baseGold="10"/>
+        <baseItem id="chainLeggings" name="Chain Leggings" material="chain" baseGold="25"/>
+        <baseItem id="plateLeggings" name="Plate Leggings" material="plate" baseGold="40"/>
+      </slot>
+
+      <slot id="belt" name="Belt">
+        <baseItem id="ropeBelt" name="Rope Belt" material="cloth" baseGold="0.1"/>
+        <baseItem id="leatherBelt" name="Leather Belt" material="leather" baseGold="1"/>
+        <baseItem id="reinforcedBelt" name="Reinforced Belt" material="leather" baseGold="3"/>
+        <baseItem id="platedWarBelt" name="Plated War Belt" material="plate" baseGold="10"/>
+      </slot>
+
+      <slot id="gloves" name="Gloves">
+        <baseItem id="clothGloves" name="Cloth Gloves" material="cloth" baseGold="0.2"/>
+        <baseItem id="leatherGloves" name="Leather Gloves" material="leather" baseGold="2"/>
+        <baseItem id="chainGloves" name="Chain Gloves" material="chain" baseGold="10"/>
+        <baseItem id="gauntlets" name="Gauntlets" material="plate" baseGold="15"/>
+      </slot>
+
+      <slot id="bracers" name="Bracers">
+        <baseItem id="clothBracers" name="Cloth Bracers" material="cloth" baseGold="0.3"/>
+        <baseItem id="leatherBracers" name="Leather Bracers" material="leather" baseGold="3"/>
+        <baseItem id="chainBracers" name="Chain Bracers" material="chain" baseGold="12"/>
+        <baseItem id="plateBracers" name="Plate Bracers" material="plate" baseGold="18"/>
+      </slot>
+
+      <slot id="gorget" name="Gorget" note="Neck armor slot">
+        <baseItem id="leatherGorget" name="Leather Gorget" material="leather" baseGold="6"/>
+        <baseItem id="chainGorget" name="Chain Gorget" material="chain" baseGold="18"/>
+        <baseItem id="plateGorget" name="Plate Gorget" material="plate" baseGold="25"/>
+      </slot>
+
+      <slot id="headwear" name="Headwear">
+        <baseItem id="hood" name="Hood" material="cloth" baseGold="1"/>
+        <baseItem id="leatherCap" name="Leather Cap" material="leather" baseGold="5"/>
+        <baseItem id="chainCoif" name="Chain Coif" material="chain" baseGold="20"/>
+        <baseItem id="helmet" name="Helmet" material="plate" baseGold="10"/>
+        <baseItem id="greatHelm" name="Great Helm" material="plate" baseGold="30"/>
+      </slot>
+
+      <!-- Apply tiers 0..6 to ALL armor-slot items -->
+      <appliesQuality tierRefs="0,1,2,3,4,5,6" namingRuleRef="armorNaming" pricingRuleRef="goldPricing"/>
+    </category>
+
+    <!-- =========================
+         JEWELRY
+         - Material attribute enables material-specific descriptors (Option 1)
+         - baseGold values are baseline "mundane" jewelry; magic scaling comes from tier multipliers
+         ========================= -->
+    <category id="jewelry" name="Jewelry">
+
+      <slot id="ring" name="Ring" maxEquipped="2">
+        <baseItem id="plainRing" name="Plain Ring" material="metal" baseGold="5"/>
+        <baseItem id="signetRing" name="Signet Ring" material="metal" baseGold="10"/>
+        <baseItem id="engravedRing" name="Engraved Ring" material="metal" baseGold="15"/>
+        <baseItem id="arcaneRing" name="Arcane Ring" material="gemstone" baseGold="50"/>
+      </slot>
+
+      <slot id="necklace" name="Necklace" maxEquipped="1">
+        <baseItem id="cordNecklace" name="Cord Necklace" material="cloth" baseGold="1"/>
+        <baseItem id="beadedNecklace" name="Beaded Necklace" material="wood" baseGold="3"/>
+        <baseItem id="silverNecklace" name="Silver Necklace" material="metal" baseGold="25"/>
+        <baseItem id="arcaneAmulet" name="Arcane Amulet" material="gemstone" baseGold="75"/>
+      </slot>
+
+      <!-- Apply tiers 0..6 to ALL jewelry items -->
+      <appliesQuality tierRefs="0,1,2,3,4,5,6" namingRuleRef="jewelryNaming" pricingRuleRef="goldPricing"/>
+    </category>
+
+  </categories>
+
+  <!-- =========================================================
+       DESCRIPTORS (Material-based)  [Option 1]
+       - Tier 0: "Poorly Made" flavor sets
+       - Tier 2-3: crafted flavor sets
+       - IMPORTANT: Cloth/Leather uses "Worn" (not "Cracked")
+       - Your generator should select a descriptorSet matching:
+         (tier AND category AND material) first.
+         If none exist, it may fall back to a generic set.
+       ========================================================= -->
+  <descriptors>
+
+    <!-- ========== WEAPONS: Tier 0 ========== -->
+    <descriptorSet id="poorlyMadeWeaponMetal" forTier="0" forCategory="weapons" forMaterial="metal">
+      <d>Rusted</d>
+      <d>Chipped</d>
+      <d>Warped</d>
+      <d>Blunt</d>
+    </descriptorSet>
+
+    <descriptorSet id="poorlyMadeWeaponWood" forTier="0" forCategory="weapons" forMaterial="wood">
+      <d>Splintered</d>
+      <d>Warped</d>
+      <d>Worn</d>
+      <d>Cracked-Grain</d>
+    </descriptorSet>
+
+    <descriptorSet id="poorlyMadeWeaponCloth" forTier="0" forCategory="weapons" forMaterial="cloth">
+      <d>Worn</d>
+      <d>Frayed</d>
+      <d>Torn</d>
+      <d>Stretched</d>
+    </descriptorSet>
+
+    <descriptorSet id="poorlyMadeWeaponLeather" forTier="0" forCategory="weapons" forMaterial="leather">
+      <d>Worn</d>
+      <d>Scuffed</d>
+      <d>Dry-rotted</d>
+      <d>Split-stitched</d>
+    </descriptorSet>
+
+    <!-- ========== WEAPONS: Tier 2-3 ========== -->
+    <descriptorSet id="craftedWeaponMetal" forTier="2,3" forCategory="weapons" forMaterial="metal">
+      <d>Balanced</d>
+      <d>Fine-edged</d>
+      <d>Reinforced</d>
+      <d>Polished</d>
+    </descriptorSet>
+
+    <descriptorSet id="craftedWeaponWood" forTier="2,3" forCategory="weapons" forMaterial="wood">
+      <d>Balanced</d>
+      <d>Shod</d>
+      <d>Reinforced</d>
+      <d>Well-turned</d>
+    </descriptorSet>
+
+    <descriptorSet id="craftedWeaponCloth" forTier="2,3" forCategory="weapons" forMaterial="cloth">
+      <d>Stitched</d>
+      <d>Reinforced</d>
+      <d>Supple</d>
+      <d>Well-woven</d>
+    </descriptorSet>
+
+    <descriptorSet id="craftedWeaponLeather" forTier="2,3" forCategory="weapons" forMaterial="leather">
+      <d>Supple</d>
+      <d>Reinforced</d>
+      <d>Fine</d>
+      <d>Well-tanned</d>
+    </descriptorSet>
+
+    <!-- ========== ARMOR: Tier 0 ========== -->
+    <descriptorSet id="poorlyMadeArmorCloth" forTier="0" forCategory="armor" forMaterial="cloth">
+      <d>Worn</d>
+      <d>Frayed</d>
+      <d>Torn</d>
+      <d>Stained</d>
+    </descriptorSet>
+
+    <descriptorSet id="poorlyMadeArmorLeather" forTier="0" forCategory="armor" forMaterial="leather">
+      <d>Worn</d>
+      <d>Scuffed</d>
+      <d>Split-stitched</d>
+      <d>Dry-rotted</d>
+    </descriptorSet>
+
+    <descriptorSet id="poorlyMadeArmorChain" forTier="0" forCategory="armor" forMaterial="chain">
+      <d>Rusty</d>
+      <d>Loose-linked</d>
+      <d>Snagging</d>
+      <d>Bent</d>
+    </descriptorSet>
+
+    <descriptorSet id="poorlyMadeArmorPlate" forTier="0" forCategory="armor" forMaterial="plate">
+      <d>Dented</d>
+      <d>Bent</d>
+      <d>Rusty</d>
+      <d>Ill-fitted</d>
+    </descriptorSet>
+
+    <!-- ========== ARMOR: Tier 2-3 ========== -->
+    <descriptorSet id="craftedArmorCloth" forTier="2,3" forCategory="armor" forMaterial="cloth">
+      <d>Stitched</d>
+      <d>Lined</d>
+      <d>Tailored</d>
+      <d>Reinforced</d>
+    </descriptorSet>
+
+    <descriptorSet id="craftedArmorLeather" forTier="2,3" forCategory="armor" forMaterial="leather">
+      <d>Studded</d>
+      <d>Hardened</d>
+      <d>Reinforced</d>
+      <d>Supple</d>
+    </descriptorSet>
+
+    <descriptorSet id="craftedArmorChain" forTier="2,3" forCategory="armor" forMaterial="chain">
+      <d>Riveted</d>
+      <d>Balanced</d>
+      <d>Fine-linked</d>
+      <d>Reinforced</d>
+    </descriptorSet>
+
+    <descriptorSet id="craftedArmorPlate" forTier="2,3" forCategory="armor" forMaterial="plate">
+      <d>Tempered</d>
+      <d>Reinforced</d>
+      <d>Fitted</d>
+      <d>Polished</d>
+    </descriptorSet>
+
+    <!-- ========== JEWELRY: Tier 0 ========== -->
+    <descriptorSet id="poorlyMadeJewelryMetal" forTier="0" forCategory="jewelry" forMaterial="metal">
+      <d>Dull</d>
+      <d>Scratched</d>
+      <d>Tarnished</d>
+      <d>Warped</d>
+    </descriptorSet>
+
+    <descriptorSet id="poorlyMadeJewelryGemstone" forTier="0" forCategory="jewelry" forMaterial="gemstone">
+      <d>Dull</d>
+      <d>Cloudy</d>
+      <d>Chipped</d>
+      <d>Flawed</d>
+    </descriptorSet>
+
+    <descriptorSet id="poorlyMadeJewelryCloth" forTier="0" forCategory="jewelry" forMaterial="cloth">
+      <d>Worn</d>
+      <d>Frayed</d>
+      <d>Torn</d>
+      <d>Stained</d>
+    </descriptorSet>
+
+    <descriptorSet id="poorlyMadeJewelryWood" forTier="0" forCategory="jewelry" forMaterial="wood">
+      <d>Worn</d>
+      <d>Splintered</d>
+      <d>Rough-hewn</d>
+      <d>Warped</d>
+    </descriptorSet>
+
+    <!-- ========== JEWELRY: Tier 2-3 ========== -->
+    <descriptorSet id="craftedJewelryMetal" forTier="2,3" forCategory="jewelry" forMaterial="metal">
+      <d>Polished</d>
+      <d>Fine</d>
+      <d>Engraved</d>
+      <d>Well-forged</d>
+    </descriptorSet>
+
+    <descriptorSet id="craftedJewelryGemstone" forTier="2,3" forCategory="jewelry" forMaterial="gemstone">
+      <d>Faceted</d>
+      <d>Brilliant</d>
+      <d>Set</d>
+      <d>Flawless-cut</d>
+    </descriptorSet>
+
+    <descriptorSet id="craftedJewelryCloth" forTier="2,3" forCategory="jewelry" forMaterial="cloth">
+      <d>Stitched</d>
+      <d>Lined</d>
+      <d>Reinforced</d>
+      <d>Well-woven</d>
+    </descriptorSet>
+
+    <descriptorSet id="craftedJewelryWood" forTier="2,3" forCategory="jewelry" forMaterial="wood">
+      <d>Carved</d>
+      <d>Polished</d>
+      <d>Inlaid</d>
+      <d>Well-turned</d>
+    </descriptorSet>
+
+  </descriptors>
+
+</itemDatabase>

@@ -1,0 +1,168 @@
+/* frontend/src/layout.css */
+
+:root{
+  --left-col: 260px;
+  --chat-col: 360px;
+  --top-row: 220px;
+  --topbar-h: 56px;
+
+  /* DM rail width (controls) */
+  --right-col: 420px;
+
+  /* Inventory overlay width */
+  --inv-col: 420px;
+}
+
+html, body, #root{
+  height: 100%;
+  margin: 0;
+}
+
+.layout2{
+  display: grid;
+  grid-template-columns: var(--left-col) 1fr var(--chat-col);
+  grid-template-rows: var(--top-row) 1fr;
+
+  /* row gap stays, column gap removed so inventory can touch chat */
+  gap: 12px 0px;
+
+  height: calc(100vh - var(--topbar-h));
+}
+
+/* LEFT COLUMN */
+.leftCol{
+  grid-column: 1;
+  grid-row: 1 / span 2;
+
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  min-height: 0;
+
+  /* allow scroll if viewport is short */
+  overflow: auto;
+
+  /* extra safety so bottom controls never clip */
+  padding-bottom: 16px;
+}
+
+/* Push dice dock to bottom of left column */
+.diceDockWrap{
+  margin-top: auto;
+  padding-bottom: 8px; /* small extra buffer */
+}
+
+/* MIDDLE TOP */
+.narrCol{
+  grid-column: 2;
+  grid-row: 1;
+
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* RIGHT COLUMN — FULL HEIGHT CHAT */
+.tableCol{
+  grid-column: 3;
+  grid-row: 1 / span 2;
+
+  min-height: 0;
+  overflow: hidden;
+
+  display: flex;
+  flex-direction: column;
+}
+
+/* BOTTOM MIDDLE — MAP ZONE */
+.mapRow{
+  grid-column: 2;
+  grid-row: 2;
+
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* MAP SHELL */
+.mapShell{
+  position: relative; /* REQUIRED for inventory overlay */
+  min-height: 0;
+  height: 100%;
+
+  display: grid;
+  grid-template-columns: 1fr 0px; /* default collapsed, enabled by dmRail */
+}
+
+/* DM rail enabled */
+.mapShell.dmRail{
+  grid-template-columns: 1fr var(--right-col);
+}
+
+/* Player rail collapsed */
+.mapShell.noRail{
+  grid-template-columns: 1fr 0px;
+}
+
+/* MAP CANVAS */
+.mapCanvasWrap{
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* DM CONTROLS RAIL */
+.mapDMWrap{
+  min-height: 0;
+  overflow: auto;
+}
+
+/* INVENTORY OVERLAY (PLAYER ONLY) */
+.invOverlay{
+  position: absolute;
+  top: 0;
+  right: 0;          /* TOUCHES table chat */
+  bottom: 0;
+
+  width: var(--inv-col);
+  z-index: 5;
+
+  display: flex;
+  flex-direction: column;
+}
+
+/* Allow interaction only on the panel */
+.invOverlay{
+  pointer-events: none;
+}
+.invOverlay > *{
+  pointer-events: auto;
+}
+
+/* Mobile stacking */
+@media (max-width: 1100px){
+  .layout2{
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    gap: 12px;
+    height: auto;
+    min-height: calc(100vh - var(--topbar-h));
+  }
+
+  .leftCol,
+  .narrCol,
+  .tableCol,
+  .mapRow{
+    grid-column: 1;
+    grid-row: auto;
+    min-height: 240px;
+  }
+
+  .invOverlay{
+    position: static;
+    width: 100%;
+  }
+
+  .mapShell.dmRail,
+  .mapShell.noRail{
+    grid-template-columns: 1fr;
+  }
+}

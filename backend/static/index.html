@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>D&D Console MVP</title>
+  <link rel="stylesheet" href="/static/styles.css"/>
+</head>
+<body>
+  <header>
+    <h1>D&D Console MVP</h1>
+
+    <div class="row">
+      <input id="roomName" placeholder="Room name (for create)" />
+      <button id="createRoomBtn">Create Room</button>
+
+      <input id="roomId" placeholder="Room ID to join" />
+      <input id="displayName" placeholder="Your name" />
+
+      <select id="role">
+        <option value="player">Player</option>
+        <option value="dm">DM</option>
+      </select>
+
+      <button id="joinBtn">Join</button>
+    </div>
+
+    <div id="status" class="status">Not connected.</div>
+  </header>
+
+  <main class="layout">
+    <!-- LEFT COLUMN -->
+    <section class="panel leftPanel">
+      <h2>Scene</h2>
+      <div id="sceneTitle" class="sceneTitle">—</div>
+      <div id="sceneText" class="sceneText">—</div>
+
+      <div class="row">
+        <button id="narrateBtn" disabled>Ask Narrator (AI)</button>
+      </div>
+
+      <!-- DM PANEL -->
+      <div id="dmPanel" class="dmPanel" style="display:none;">
+        <h2>DM Control Panel</h2>
+
+        <div class="row">
+          <button id="lockBtn" disabled>Lock/Unlock</button>
+          <button id="clearChatBtn" disabled>Clear Chat</button>
+        </div>
+
+        <div class="row">
+          <label class="label">AI Mode</label>
+          <select id="aiMode">
+            <option value="auto">Auto-publish</option>
+            <option value="preview">DM Preview</option>
+          </select>
+          <button id="setAiModeBtn" disabled>Apply</button>
+        </div>
+
+        <div class="row">
+          <label class="label">Kick</label>
+          <select id="kickSelect"></select>
+          <button id="kickBtn" disabled>Kick</button>
+        </div>
+
+        <div id="aiPreview" class="aiPreview" style="display:none;">
+          <h3>Pending Narration</h3>
+          <div id="aiPreviewText" class="aiPreviewText"></div>
+          <div id="aiPreviewChoices" class="aiPreviewChoices"></div>
+          <details>
+            <summary>DM Notes</summary>
+            <div id="aiPreviewNotes" class="aiPreviewNotes"></div>
+          </details>
+          <div class="row">
+            <button id="publishAiBtn">Publish</button>
+            <button id="discardAiBtn">Discard</button>
+          </div>
+        </div>
+
+        <h2>Scene Editor</h2>
+        <div class="sceneEditor">
+          <div class="row">
+            <label class="label">Template</label>
+            <select id="sceneTemplate">
+              <option value="">Choose a template…</option>
+            </select>
+            <button id="applyTemplateBtn" disabled>Apply</button>
+          </div>
+
+          <div class="row" style="margin-top:8px;">
+            <label class="label">AI Hint</label>
+            <input id="aiSceneHint" placeholder="haunted lighthouse, foggy docks…" />
+            <button id="aiDraftSceneBtn" disabled>Draft from AI</button>
+          </div>
+
+          <input id="sceneEditTitle" placeholder="Scene title (DM)" />
+          <textarea id="sceneEditText" rows="7" placeholder="Scene description..."></textarea>
+
+          <details style="margin-top:8px;">
+            <summary>DM Notes (AI / private)</summary>
+            <div id="sceneDmNotes" class="aiPreviewNotes"></div>
+          </details>
+
+          <div class="row">
+            <button id="saveSceneBtn" disabled>Save Scene</button>
+            <span id="sceneSavedMsg" class="tiny"></span>
+          </div>
+        </div>
+      </div>
+
+      <h2>Members</h2>
+      <ul id="members"></ul>
+    </section>
+
+    <!-- RIGHT COLUMN -->
+    <section class="chat rightPanel">
+      <h2>Table Chat</h2>
+      <div id="log" class="log"></div>
+
+      <div class="row">
+        <input id="chatInput" placeholder="Say something..." />
+        <button id="sendBtn" disabled>Send</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- DICE WIDGET: bottom-left -->
+  <div class="diceDock" id="diceDock">
+    <div class="diceDockHeader">
+      <div class="diceDockTitle">Dice</div>
+      <button id="diceDockClearBtn" class="diceDockClear" disabled>Clear</button>
+    </div>
+
+    <div class="diceIcons">
+      <!-- Each die: icon button + counter -->
+      <div class="dieIcon" data-die="d4">
+        <button class="dieIconBtn" id="die_d4" title="d4">
+          ▲ <span class="dieLabel">d4</span>
+        </button>
+        <div class="dieCounter">
+          <button class="dieStep" id="d4_minus">−</button>
+          <span class="dieCount" id="d4_cnt">0</span>
+          <button class="dieStep" id="d4_plus">+</button>
+        </div>
+      </div>
+
+      <div class="dieIcon" data-die="d6">
+        <button class="dieIconBtn" id="die_d6" title="d6">
+          ■ <span class="dieLabel">d6</span>
+        </button>
+        <div class="dieCounter">
+          <button class="dieStep" id="d6_minus">−</button>
+          <span class="dieCount" id="d6_cnt">0</span>
+          <button class="dieStep" id="d6_plus">+</button>
+        </div>
+      </div>
+
+      <div class="dieIcon" data-die="d8">
+        <button class="dieIconBtn" id="die_d8" title="d8">
+          ◆ <span class="dieLabel">d8</span>
+        </button>
+        <div class="dieCounter">
+          <button class="dieStep" id="d8_minus">−</button>
+          <span class="dieCount" id="d8_cnt">0</span>
+          <button class="dieStep" id="d8_plus">+</button>
+        </div>
+      </div>
+
+      <div class="dieIcon" data-die="d10">
+        <button class="dieIconBtn" id="die_d10" title="d10">
+          ⬟ <span class="dieLabel">d10</span>
+        </button>
+        <div class="dieCounter">
+          <button class="dieStep" id="d10_minus">−</button>
+          <span class="dieCount" id="d10_cnt">0</span>
+          <button class="dieStep" id="d10_plus">+</button>
+        </div>
+      </div>
+
+      <div class="dieIcon" data-die="d12">
+        <button class="dieIconBtn" id="die_d12" title="d12">
+          ⬢ <span class="dieLabel">d12</span>
+        </button>
+        <div class="dieCounter">
+          <button class="dieStep" id="d12_minus">−</button>
+          <span class="dieCount" id="d12_cnt">0</span>
+          <button class="dieStep" id="d12_plus">+</button>
+        </div>
+      </div>
+
+      <div class="dieIcon" data-die="d20">
+        <button class="dieIconBtn" id="die_d20" title="d20">
+          ⬣ <span class="dieLabel">d20</span>
+        </button>
+        <div class="dieCounter">
+          <button class="dieStep" id="d20_minus">−</button>
+          <span class="dieCount" id="d20_cnt">0</span>
+          <button class="dieStep" id="d20_plus">+</button>
+        </div>
+      </div>
+
+    <!-- Restored text input (fallback / power users) -->
+<div class="diceBottom">
+  <div class="diceInputs">
+    <div class="diceTextRow">
+      <input id="diceExpr" placeholder="e.g. 2d6+1d8+3" />
+      <select id="diceMode">
+        <option value="">normal</option>
+        <option value="adv">adv</option>
+        <option value="dis">dis</option>
+      </select>
+    </div>
+
+    <div class="diceTextRow">
+      <label class="label">Mod</label>
+      <input id="diceMod" value="0" />
+      <button id="rollBtn" disabled>Roll</button>
+    </div>
+  </div>
+
+  <div id="diceExprPreview" class="dicePreview dicePreviewRight">—</div>
+</div>
+
+  </div>
+
+  <script src="/static/client.js"></script>
+</body>
+</html>

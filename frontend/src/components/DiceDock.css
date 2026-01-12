@@ -1,0 +1,150 @@
+.diceDock {
+  margin-top: auto; /* anchors to bottom inside flex column parent */
+  padding: 12px;
+  padding-bottom: 14px; /* small safety so nothing kisses the bottom edge */
+  border-radius: 14px;
+  background: rgba(10, 14, 20, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-sizing: border-box;
+  width: 100%;
+
+  /* IMPORTANT: prevent any internal horizontal overflow that causes scrollbars */
+  overflow-x: hidden;
+}
+
+.diceHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.diceGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.diceRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.diceRow.center {
+  grid-template-columns: 1fr;
+  justify-items: center;
+}
+
+.dieTile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.dieBtn {
+  width: 100%;
+  padding: 6px 0;
+  border-radius: 10px;
+  background: #111827;
+  color: #e5e7eb;
+  border: 1px solid #1f2937;
+  cursor: pointer;
+}
+
+.dieBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.dieCount {
+  text-align: center;
+  font-size: 14px;
+  opacity: 0.9;
+  padding: 2px 0;
+  border-radius: 8px;
+  background: rgba(11, 18, 32, 0.35);
+  border: 1px solid rgba(31, 41, 55, 0.7);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.dieSteps {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.dieSteps button {
+  height: 24px;
+  border-radius: 6px;
+  background: #0b1220;
+  color: #e5e7eb;
+  border: 1px solid #1f2937;
+  cursor: pointer;
+}
+
+.dieSteps button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Footer: keep compact at larger widths */
+.diceFooter {
+  margin-top: 10px;
+  display: grid;
+
+  /* Use minmax(0,1fr) to allow shrinking without overflow */
+  grid-template-columns: minmax(0, 1fr) 56px 72px 72px; /* expr | mod | mode | roll */
+  gap: 8px;
+  align-items: center;
+}
+
+.diceExpr,
+.diceMod,
+.diceModeSelect {
+  width: 100%;
+  min-width: 0; /* CRITICAL */
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(11, 18, 32, 0.35);
+  border: 1px solid rgba(31, 41, 55, 0.7);
+  color: #e5e7eb;
+  outline: none;
+}
+
+.rollBtn {
+  width: 100%;
+  padding: 8px;
+  border-radius: 10px;
+  background: #1d4ed8;
+  color: white;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.rollBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ✅ KEY FIX:
+   Your left column is ~260px, so we MUST stack the footer at that size
+   to prevent horizontal overflow & the scrollbar that covers the Roll button. */
+@media (max-width: 320px) {
+  .diceFooter {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .diceExpr {
+    grid-column: 1 / -1;
+  }
+
+  .rollBtn {
+    grid-column: 1 / -1;
+  }
+}

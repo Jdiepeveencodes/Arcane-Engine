@@ -1,0 +1,82 @@
+#######################################
+# 🔐 Secrets & Environment
+#######################################
+.env
+.env.*
+*.key
+*.pem
+
+#######################################
+# 🐍 Python
+#######################################
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python build artifacts
+build/
+dist/
+.eggs/
+*.egg-info/
+
+#######################################
+# ⚡ FastAPI / Uvicorn
+#######################################
+*.log
+uvicorn.log
+
+#######################################
+# 🗄️ Databases (local dev)
+#######################################
+*.sqlite
+*.sqlite3
+*.db
+
+#######################################
+# 🌐 Frontend / Node (future-proofing)
+#######################################
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+#######################################
+# 🧪 Testing / Coverage
+#######################################
+.coverage
+htmlcov/
+.pytest_cache/
+
+#######################################
+# 🖥️ OS Files
+#######################################
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# macOS
+.DS_Store
+
+#######################################
+# 🛠️ Editors / IDEs
+#######################################
+.vscode/
+.idea/
+*.swp
+*.swo
+*.bak
+
+#######################################
+# 📦 Misc
+#######################################
+.cache/
+temp/
+tmp/

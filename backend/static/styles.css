@@ -1,0 +1,364 @@
+/* -----------------------------
+   Global theme (restore dark UI)
+------------------------------ */
+:root{
+  color-scheme: dark;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: #0b0f17;
+  color: #e6edf3;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: #e6edf3;
+  margin: 0 0 10px 0;
+}
+
+a {
+  color: #8ab4ff;
+}
+
+.status {
+  opacity: 0.9;
+}
+
+/* Make form controls readable everywhere */
+input, select, textarea, button {
+  color: #e6edf3;
+  background: #111a2a;
+  border: 1px solid #1f2a3a;
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+button {
+  cursor: pointer;
+  background: #162038;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.label {
+  font-size: 12px;
+  opacity: 0.85;
+  margin-right: 6px;
+}
+
+/* Rows */
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Panels / Containers */
+.panel, .chat {
+  border: 1px solid #1f2a3a;
+  border-radius: 16px;
+  background: #0e1420;
+  padding: 14px;
+}
+
+.log {
+  height: 420px;
+  overflow: auto;
+  border: 1px solid #1f2a3a;
+  border-radius: 14px;
+  background: #0b0f17;
+  padding: 10px;
+}
+
+.msg { margin: 6px 0; }
+.sys { opacity: 0.8; }
+.err { color: #ff8b8b; }
+.dice { opacity: 0.95; }
+
+.sceneTitle {
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.sceneText {
+  opacity: 0.95;
+  white-space: pre-wrap;
+}
+
+/* -----------------------------
+   Layout cleanup
+------------------------------ */
+.layout {
+  display: grid;
+  grid-template-columns: 440px 1fr;
+  gap: 16px;
+  padding: 16px;
+}
+
+.leftPanel { min-height: 640px; }
+.rightPanel { min-height: 640px; }
+.rightPanel {
+  padding-bottom: 140px; /* gives chat a bit of breathing room above dock */
+}
+
+/* -----------------------------
+   Dice dock (bottom-left)
+------------------------------ */
+.diceDock {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  width: 420px; /* wider for more dice */
+  border: 1px solid #1f2a3a;
+  border-radius: 16px;
+  background: #0e1420;
+  padding: 12px;
+  z-index: 9999; /* ensures clickable above panels */
+  box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+}
+
+.diceDockHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.diceDockTitle {
+  font-weight: 700;
+}
+
+.diceDockClear {
+  padding: 6px 10px;
+  border-radius: 10px;
+}
+
+.diceIcons {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  justify-items: center; /* 🔑 prevents stretching */
+}
+
+
+
+.dieIcon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  border: 1px solid #1f2a3a;
+  border-radius: 14px;
+  padding: 8px;
+  background: #0b0f17;
+}
+
+
+.dieIconBtn {
+  width: 72px;
+  height: 44px;
+  padding: 6px 8px;
+  border-radius: 12px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 1;
+
+  background: #162038;
+  border: 1px solid #1f2a3a;
+}
+
+
+.dieLabel {
+  font-size: 12px;
+  opacity: 0.9;
+  font-weight: 700;
+}
+
+.dieCounter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.dieStep {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  font-weight: 800;
+}
+
+.dieCount {
+  width: 32px;
+  text-align: center;
+  border: 1px solid #1f2a3a;
+  border-radius: 8px;
+  padding: 4px 0;
+  background: #111a2a;
+  font-weight: 800;
+}
+
+.diceTextRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.diceTextRow input#diceExpr {
+  flex: 1;
+}
+
+.diceTextRow input#diceMod {
+  width: 60px;
+}
+
+.dicePreview {
+  margin-top: 8px;
+  font-size: 13px;
+  opacity: 0.9;
+  padding: 8px 10px;
+  border: 1px solid #1f2a3a;
+  border-radius: 12px;
+  background: #0b0f17;
+  word-break: break-word;
+}
+.diceDock, .diceDock * {
+  color: #e6edf3;
+}
+
+.dieIconBtn {
+  background: #162038;
+  border: 1px solid #1f2a3a;
+}
+
+.dieIconBtn:hover {
+  filter: brightness(1.08);
+}
+
+.dieStep {
+  background: #162038;
+  border: 1px solid #1f2a3a;
+}
+
+.dieCount {
+  color: #e6edf3;
+}
+.diceBottom {
+  display: grid;
+  grid-template-columns: 1fr 160px; /* preview column on the right */
+  gap: 10px;
+  margin-top: 10px;
+  align-items: start;
+}
+
+.diceInputs .diceTextRow {
+  margin-top: 0;
+}
+
+.dicePreviewRight {
+  height: 74px;              /* lines up with 2 input rows */
+  display: flex;
+  align-items: center;
+}
+
+/* Keep dock usable on small screens */
+@media (max-width: 900px) {
+  .diceDock { width: calc(100% - 32px); }
+  .diceBottom { grid-template-columns: 1fr; }
+  .layout { grid-template-columns: 1fr; }
+}
+
+/* --- FIX: keep all dice tiles inside the dock --- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+.diceDock {
+  overflow: hidden;     /* prevents spillover */
+  max-width: 520px;     /* safety */
+}
+
+/* Ensure grid children can shrink (prevents overflow out of container) */
+.diceDock > * {
+  min-width: 0;
+}
+
+.diceIcons {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-auto-rows: auto;
+  gap: 10px;
+  justify-items: center;
+  align-items: start;
+
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Make each die tile a fixed footprint so the layout can't push wide */
+.dieIcon {
+  width: 120px;
+  max-width: 100%;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Compact but consistent */
+.dieIconBtn {
+  width: 72px;
+  height: 44px;
+}
+
+.dieCounter {
+  width: 100%;
+  justify-content: center;
+}
+
+/* Bottom controls should wrap instead of pushing the dock wider */
+.diceBottom {
+  display: block;       /* simplest: stack controls under the grid */
+  margin-top: 12px;
+}
+
+.diceInputs {
+  width: 100%;
+}
+
+.diceTextRow {
+  flex-wrap: wrap;
+}
+
+.diceTextRow input#diceExpr {
+  min-width: 180px;
+  flex: 1;
+}
+
+.dicePreviewRight {
+  width: 100%;
+  height: auto;
+  margin-top: 10px;
+}

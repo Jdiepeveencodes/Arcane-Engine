@@ -1,0 +1,258 @@
+:root {
+  --bg: #0b0f17;
+  --panel: rgba(12, 18, 28, 0.72);
+  --stroke: rgba(80, 120, 170, 0.22);
+  --text: #e6edf3;
+  --muted: rgba(230, 237, 243, 0.65);
+  --radius: 18px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: radial-gradient(1200px 900px at 30% 10%, #121c2f 0%, var(--bg) 55%);
+  color: var(--text);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
+
+/* Panels */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius);
+  padding: 14px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.28);
+}
+
+.muted { color: var(--muted); }
+
+/* Make the app able to size to the viewport */
+html, body, #root { height: 100%; }
+
+/* Layout based on your mock (responsive) */
+.layout2 {
+  padding: 18px;
+  display: grid;
+
+  /* left / middle / right */
+  grid-template-columns: 360px minmax(0, 1fr) 520px;
+
+  /* top row hugs content, bottom row consumes remaining space */
+  grid-template-rows: minmax(220px, 320px) 1fr;
+
+  gap: 14px;
+
+  /* fill the viewport minus the top bar */
+  height: calc(100vh - 110px);
+  min-height: 0;
+}
+
+.leftCol,
+.narrCol,
+.tableCol,
+.mapRow {
+  min-height: 0; /* allows inner scroll areas */
+}
+
+/* Optional: tighter on smaller widths */
+@media (max-width: 1200px) {
+  .layout2 {
+    grid-template-columns: 320px minmax(0, 1fr);
+    grid-template-rows: minmax(220px, 320px) minmax(220px, 320px) 1fr;
+  }
+
+  .tableCol { grid-column: 1 / span 2; grid-row: 2; }
+  .mapRow   { grid-column: 1 / span 2; grid-row: 3; }
+  .narrCol  { grid-column: 2; grid-row: 1; }
+  .leftCol  { grid-column: 1; grid-row: 1; }
+}
+
+
+.leftCol {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  min-height: 0;
+}
+
+.narrCol {
+  grid-column: 2;
+  grid-row: 1;
+  min-height: 0;
+}
+
+.tableCol {
+  grid-column: 3;
+  grid-row: 1;
+  min-height: 0;
+}
+
+.mapRow {
+  grid-column: 2 / span 2;
+  grid-row: 2;
+  min-height: 0;
+}
+
+/* Chat */
+.log {
+  margin-top: 10px;
+  height: calc(100% - 74px);
+  overflow: auto;
+  padding-right: 6px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.06);
+  background: rgba(0,0,0,0.18);
+  padding: 10px;
+}
+
+.msg {
+  padding: 6px 4px;
+  line-height: 1.25rem;
+}
+
+.msg.sys { color: var(--muted); }
+.msg.err { color: #ff7a7a; }
+
+.row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+input, select, button {
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(0,0,0,0.22);
+  color: var(--text);
+  padding: 8px 10px;
+  outline: none;
+}
+
+button {
+  cursor: pointer;
+}
+button:disabled, input:disabled, select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Dice message styling */
+.diceMsg {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.diceExpr {
+  padding: 2px 6px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(0,0,0,0.25);
+}
+
+.diceTotal {
+  font-weight: 900;
+  font-size: 14px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(0,0,0,0.25);
+}
+
+.totalLine { margin-top: 8px; margin-bottom: 6px; }
+.totalDivider {
+  display: block;
+  height: 1px;
+  width: 100%;
+  background: rgba(255,255,255,0.14);
+  opacity: 0.85;
+  margin: 10px 0 8px;
+}
+.totalInner { display: inline-flex; align-items: center; gap: 8px; font-weight: 900; }
+.totalText { font-weight: 900; }
+
+/* Map panel */
+.mapPanel { height: 100%; padding: 12px; }
+.mapHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.mapCanvasWrap {
+  height: calc(100% - 34px);
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(0,0,0,0.22);
+  overflow: hidden;
+}
+
+.diceGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+
+.diceGrid .center {
+  grid-column: 2; /* center column */
+}
+
+/* Make these grid cells behave like "full-height columns" */
+.leftCol,
+.narrCol,
+.tableCol,
+.mapRow {
+  min-height: 0;
+  display: flex;
+}
+
+/* Ensure the panel inside fills the grid cell */
+.leftCol > .panel,
+.narrCol > .panel,
+.tableCol > .panel,
+.mapRow > .panel {
+  width: 100%;
+  height: 100%;
+}
+
+/* ChannelChat: force its panel to be a flex column */
+.narrCol > .panel,
+.tableCol > .panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* The scrolling log should flex, not calc-height */
+.log {
+  flex: 1;
+  height: auto;     /* override calc(...) */
+  min-height: 0;    /* critical so it can shrink inside grid */
+}
+/* placeholder styling */
+.mapPlaceholder {
+  display: flex;
+  min-height: 0;
+}
+
+.mapPlaceholderInner {
+  width: 100%;
+  height: 100%;
+  border-radius: 14px;
+  border: 1px dashed rgba(255,255,255,0.18);
+  background: rgba(0,0,0,0.16);
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 18px;
+}
+
+.mapPlaceholderTitle {
+  font-weight: 900;
+  font-size: 18px;
+  margin-bottom: 8px;
+}
