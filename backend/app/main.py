@@ -4,408 +4,244 @@ import os
 import time
 import uuid
 import sqlite3
-from typing import Any
+import urllib.parse
+from typing import Any, Optional
+
+from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from dotenv import load_dotenv
-from .rooms import manager, Room, ClientConn
-from .dice import parse_and_roll
-from .ai import call_narrator, call_scene_draft
 from pydantic import BaseModel
-import urllib.parse
 
-# ---------------------------
-# SQLite persistence (MVP)
-# ---------------------------
-
-DB_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "arcane.db")
-
-
-def db_connect() -> sqlite3.Connection:
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    con = sqlite3.connect(DB_PATH)
-    con.row_factory = sqlite3.Row
-    return con
-
-
-def db_init() -> None:
-    con = db_connect()
-    con.execute(
-        """
-        CREATE TABLE IF NOT EXISTS rooms (
-          room_id TEXT PRIMARY KEY,
-          created_at INTEGER NOT NULL,
-          updated_at INTEGER NOT NULL,
-          name TEXT,
-          dm_user_id TEXT,
-          grid_cols INTEGER NOT NULL DEFAULT 20,
-          grid_rows INTEGER NOT NULL DEFAULT 20,
-          grid_cell INTEGER NOT NULL DEFAULT 32,
-          map_image_url TEXT
-        );
-        """
-    )
-    con.execute(
-        """
-        CREATE TABLE IF NOT EXISTS tokens (
-          room_id TEXT NOT NULL,
-          token_id TEXT NOT NULL,
-          label TEXT,
-          kind TEXT NOT NULL,                -- player | npc | object
-          x INTEGER NOT NULL,
-          y INTEGER NOT NULL,
-          owner_user_id TEXT,                -- nullable
-          size INTEGER NOT NULL,             -- 1..6 squares
-          color INTEGER,                     -- nullable (0xRRGGBB)
-          is_hidden INTEGER NOT NULL DEFAULT 0,
-          hp INTEGER,
-          max_hp INTEGER,
-          notes TEXT,
-          PRIMARY KEY (room_id, token_id)
-        );
-        """
-    )
-    con.execute(
-        """
-        CREATE TABLE IF NOT EXISTS inventory_items (
-          room_id TEXT NOT NULL,
-          owner_user_id TEXT NOT NULL,       -- player user id (or "dm")
-          slot TEXT NOT NULL,                -- bag | head | chest | etc
-          item_id TEXT NOT NULL,
-          name TEXT NOT NULL,
-          tier_id INTEGER NOT NULL,
-          rarity TEXT NOT NULL,
-          qty INTEGER NOT NULL DEFAULT 1,
-          payload_json TEXT,                 -- serialized misc item data
-          created_at INTEGER NOT NULL,
-          updated_at INTEGER NOT NULL,
-          PRIMARY KEY (room_id, owner_user_id, slot, item_id)
-        );
-        """
-    )
-    con.commit()
-    con.close()
-
-
-def now_ts() -> int:
-    return int(time.time())
-
-
-def db_upsert_room(room: Room) -> None:
-    con = db_connect()
-    con.execute(
-        """
-        INSERT INTO rooms (room_id, created_at, updated_at, name, dm_user_id,
-                           grid_cols, grid_rows, grid_cell, map_image_url)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(room_id) DO UPDATE SET
-          updated_at = excluded.updated_at,
-          name = excluded.name,
-          dm_user_id = excluded.dm_user_id,
-          grid_cols = excluded.grid_cols,
-          grid_rows = excluded.grid_rows,
-          grid_cell = excluded.grid_cell,
-          map_image_url = excluded.map_image_url
-        """,
-        (
-            room.room_id,
-            getattr(room, "created_at", now_ts()),
-            now_ts(),
-            getattr(room, "name", None),
-            getattr(room, "dm_user_id", None),
-            room.grid["cols"],
-            room.grid["rows"],
-            room.grid["cell"],
-            getattr(room, "map_image_url", None),
-        ),
-    )
-    con.commit()
-    con.close()
-
-
-def db_load_room_state(room: Room) -> None:
-    """Load persisted room fields + tokens + inventory into the in-memory room."""
-    con = db_connect()
-
-    # room fields
-    row = con.execute(
-        "SELECT * FROM rooms WHERE room_id = ?",
-        (room.room_id,),
-    ).fetchone()
-    if row:
-        room.grid["cols"] = int(row["grid_cols"])
-        room.grid["rows"] = int(row["grid_rows"])
-        room.grid["cell"] = int(row["grid_cell"])
-        room.map_image_url = row["map_image_url"] or room.map_image_url
-
-    # tokens
-    rows = con.execute(
-        "SELECT * FROM tokens WHERE room_id = ?",
-        (room.room_id,),
-    ).fetchall()
-    room.tokens = {}
-    for r in rows:
-        room.tokens[str(r["token_id"])] = {
-            "id": str(r["token_id"]),
-            "label": r["label"],
-            "kind": r["kind"],
-            "x": int(r["x"]),
-            "y": int(r["y"]),
-            "ownerUserId": r["owner_user_id"],
-            "size": int(r["size"]),
-            "color": r["color"],
-            "isHidden": bool(r["is_hidden"]),
-            "hp": r["hp"],
-            "maxHp": r["max_hp"],
-            "notes": r["notes"],
-        }
-
-    # inventory
-    inv_rows = con.execute(
-        "SELECT * FROM inventory_items WHERE room_id = ?",
-        (room.room_id,),
-    ).fetchall()
-    room.inventory = {}
-    for r in inv_rows:
-        owner = str(r["owner_user_id"])
-        room.inventory.setdefault(owner, {})
-        room.inventory[owner].setdefault(r["slot"], {})
-        room.inventory[owner][r["slot"]][str(r["item_id"])] = {
-            "itemId": str(r["item_id"]),
-            "name": r["name"],
-            "tierId": int(r["tier_id"]),
-            "rarity": r["rarity"],
-            "qty": int(r["qty"]),
-            "payload": r["payload_json"],
-        }
-
-    con.close()
-
-
-def db_upsert_token(room_id: str, token: dict[str, Any]) -> None:
-    con = db_connect()
-    con.execute(
-        """
-        INSERT INTO tokens (room_id, token_id, label, kind, x, y, owner_user_id, size, color, is_hidden, hp, max_hp, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(room_id, token_id) DO UPDATE SET
-          label = excluded.label,
-          kind = excluded.kind,
-          x = excluded.x,
-          y = excluded.y,
-          owner_user_id = excluded.owner_user_id,
-          size = excluded.size,
-          color = excluded.color,
-          is_hidden = excluded.is_hidden,
-          hp = excluded.hp,
-          max_hp = excluded.max_hp,
-          notes = excluded.notes
-        """,
-        (
-            room_id,
-            token.get("id"),
-            token.get("label"),
-            token.get("kind"),
-            int(token.get("x", 0)),
-            int(token.get("y", 0)),
-            token.get("ownerUserId"),
-            int(token.get("size", 1)),
-            token.get("color"),
-            1 if token.get("isHidden") else 0,
-            token.get("hp"),
-            token.get("maxHp"),
-            token.get("notes"),
-        ),
-    )
-    con.commit()
-    con.close()
-
-
-def db_delete_token(room_id: str, token_id: str) -> None:
-    con = db_connect()
-    con.execute("DELETE FROM tokens WHERE room_id = ? AND token_id = ?", (room_id, token_id))
-    con.commit()
-    con.close()
-
-
-def clamp_int(val: int, lo: int, hi: int, fallback: int) -> int:
-    try:
-        v = int(val)
-    except Exception:
-        return fallback
-    return max(lo, min(hi, v))
-
-
-def ensure_room_map_fields(room: Room) -> None:
-    if not hasattr(room, "grid") or room.grid is None:
-        room.grid = {"cols": 20, "rows": 20, "cell": 32}
-    if "cols" not in room.grid:
-        room.grid["cols"] = 20
-    if "rows" not in room.grid:
-        room.grid["rows"] = 20
-    if "cell" not in room.grid:
-        room.grid["cell"] = 32
-    if not hasattr(room, "map_image_url"):
-        room.map_image_url = None
-    if not hasattr(room, "tokens") or room.tokens is None:
-        room.tokens = {}
-    if not hasattr(room, "inventory") or room.inventory is None:
-        room.inventory = {}
-
-
-async def ws_send(conn: ClientConn, msg: dict[str, Any]) -> None:
-    try:
-        await conn.ws.send_json(msg)
-    except Exception:
-        pass
-
-
-async def ws_broadcast(room: Room, msg: dict[str, Any]) -> None:
-    for conn in list(room.clients.values()):
-        await ws_send(conn, msg)
-
-
-async def broadcast_map_snapshot(room: Room) -> None:
-    ensure_room_map_fields(room)
-    await ws_broadcast(
-        room,
-        {
-            "type": "map.snapshot",
-            "grid": room.grid,
-            "imageUrl": room.map_image_url,
-            "tokens": list(room.tokens.values()),
-        },
-    )
-
-
-# ---------------------------
-# App setup
-# ---------------------------
+from .rooms import manager, Room, ClientConn
+from .dice import roll_dice
+from .ai import maybe_ai_response
 
 load_dotenv()
 
-app = FastAPI(title="D&D Console MVP")
+app = FastAPI(title="Arcane Engine Backend")
 
-STATIC_DIR = os.path.join(os.path.dirname(__file__), "..", "static")
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
-
-
-@app.on_event("startup")
-async def on_startup() -> None:
-    db_init()
-
-
-# ---------------------------
-# HTTP routes
-# ---------------------------
-
-@app.get("/")
-async def root():
-    index_path = os.path.join(STATIC_DIR, "index.html")
-    if os.path.exists(index_path):
-        return FileResponse(index_path)
-    return {"ok": True, "service": "dnd-console"}
-
-
+# ------------------------------------------------------------
+# Models
+# ------------------------------------------------------------
 class CreateRoomReq(BaseModel):
-    name: str | None = None
-    dmUserId: str | None = None
+    name: str
 
 
-class CreateRoomResp(BaseModel):
-    roomId: str
-
-
-@app.get("/api/rooms")
-async def list_rooms():
-    # list from in-memory manager (MVP)
-    rooms = []
-    for rid, room in manager.rooms.items():
-        rooms.append({"roomId": rid, "name": getattr(room, "name", None)})
-    return {"rooms": rooms}
-
-
-@app.post("/api/rooms", response_model=CreateRoomResp)
-async def create_room(req: CreateRoomReq):
-    room_id = uuid.uuid4().hex[:10]
-    room = manager.create_room(room_id)
-    room.name = req.name or f"Room {room_id}"
-    room.dm_user_id = req.dmUserId
-    ensure_room_map_fields(room)
-    db_upsert_room(room)
-    return CreateRoomResp(roomId=room_id)
-
-
-class SceneReq(BaseModel):
-    prompt: str = ""
-
-
-@app.post("/api/rooms/{room_id}/scene")
-async def generate_scene(room_id: str, req: SceneReq):
-    room = manager.get_room(room_id)
-    if not room:
-        raise HTTPException(404, "Room not found")
-
-    # call your AI draft helper (kept as-is)
-    txt = await call_scene_draft(req.prompt or "")
-    return {"text": txt}
-
-
-# ---------------------------
-# AI Map generation (MVP placeholder)
-# ---------------------------
-
-from pydantic import Field
+class SceneUpdateReq(BaseModel):
+    title: str
+    text: str
 
 
 class MapGenerateReq(BaseModel):
     prompt: str = ""
     theme: str = "Fantasy"
-    cols: int | None = None
-    rows: int | None = None
-    cell: int | None = None
 
 
 class MapGenerateResp(BaseModel):
-    # Frontend checks both image_url and imageUrl; return both for compatibility.
-    image_url: str = Field(..., description="Snake_case image URL")
-    imageUrl: str | None = Field(None, description="CamelCase image URL")
+    imageUrl: str
     cols: int
     rows: int
     cell: int
 
 
-@app.post("/api/rooms/{room_id}/map/generate", response_model=MapGenerateResp)
-async def generate_map_for_room(room_id: str, req: MapGenerateReq):
+# ------------------------------------------------------------
+# SQLite persistence
+# ------------------------------------------------------------
+DB_PATH = os.getenv("ARCANE_DB_PATH") or os.path.join(os.path.dirname(__file__), "arcane.db")
+_db: sqlite3.Connection | None = None
+
+
+def db() -> sqlite3.Connection:
+    global _db
+    if _db is None:
+        os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+        _db = sqlite3.connect(DB_PATH, check_same_thread=False)
+        _db.row_factory = sqlite3.Row
+    return _db
+
+
+def db_init():
+    c = db().cursor()
+    c.execute(
+        """
+        CREATE TABLE IF NOT EXISTS rooms (
+          room_id TEXT PRIMARY KEY,
+          name TEXT,
+          created_at REAL,
+          updated_at REAL,
+          scene_title TEXT,
+          scene_text TEXT,
+          grid_cols INTEGER,
+          grid_rows INTEGER,
+          grid_cell INTEGER,
+          map_image_url TEXT
+        )
+        """
+    )
+    c.execute(
+        """
+        CREATE TABLE IF NOT EXISTS inventory (
+          room_id TEXT,
+          user_id TEXT,
+          json TEXT,
+          updated_at REAL,
+          PRIMARY KEY (room_id, user_id)
+        )
+        """
+    )
+    db().commit()
+
+
+db_init()
+
+
+def db_upsert_room(room: Any):
+    now = time.time()
+    c = db().cursor()
+    c.execute(
+        """
+        INSERT INTO rooms (
+          room_id, name, created_at, updated_at, scene_title, scene_text,
+          grid_cols, grid_rows, grid_cell, map_image_url
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(room_id) DO UPDATE SET
+          name=excluded.name,
+          updated_at=excluded.updated_at,
+          scene_title=excluded.scene_title,
+          scene_text=excluded.scene_text,
+          grid_cols=excluded.grid_cols,
+          grid_rows=excluded.grid_rows,
+          grid_cell=excluded.grid_cell,
+          map_image_url=excluded.map_image_url
+        """,
+        (
+            getattr(room, "room_id", ""),
+            getattr(room, "name", ""),
+            getattr(room, "created_at", now),
+            now,
+            (getattr(room, "scene", {}) or {}).get("title", ""),
+            (getattr(room, "scene", {}) or {}).get("text", ""),
+            (getattr(room, "grid", {}) or {}).get("cols", 20),
+            (getattr(room, "grid", {}) or {}).get("rows", 20),
+            (getattr(room, "grid", {}) or {}).get("cell", 32),
+            getattr(room, "map_image_url", "") or "",
+        ),
+    )
+    db().commit()
+
+
+def db_load_room(room_id: str) -> Any | None:
+    c = db().cursor()
+    row = c.execute("SELECT * FROM rooms WHERE room_id=?", (room_id,)).fetchone()
+    if not row:
+        return None
+    room = Room(room_id=row["room_id"], name=row["name"])
+    room.created_at = row["created_at"] or time.time()
+    room.scene = {"title": row["scene_title"] or "", "text": row["scene_text"] or ""}
+    room.grid = {"cols": row["grid_cols"] or 20, "rows": row["grid_rows"] or 20, "cell": row["grid_cell"] or 32}
+    room.map_image_url = row["map_image_url"] or ""
+    return room
+
+
+def ensure_room_loaded(room_id: str) -> Any | None:
     room = manager.get_room(room_id)
-    if not room:
-        raise HTTPException(404, "Room not found")
+    if room:
+        return room
+    loaded = db_load_room(room_id)
+    if loaded:
+        manager.rooms[room_id] = loaded
+        return loaded
+    return None
 
-    # Ensure grid/map fields exist and load persisted state
-    ensure_room_map_fields(room)
-    db_load_room_state(room)
-    ensure_room_map_fields(room)
 
-    # Optional overrides from request
-    if req.cols is not None:
-        room.grid["cols"] = clamp_int(req.cols, 1, 50, room.grid["cols"])
-    if req.rows is not None:
-        room.grid["rows"] = clamp_int(req.rows, 1, 50, room.grid["rows"])
-    if req.cell is not None:
-        room.grid["cell"] = clamp_int(req.cell, 12, 128, room.grid["cell"])
+# ------------------------------------------------------------
+# Static
+# ------------------------------------------------------------
+STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
+if os.path.isdir(STATIC_DIR):
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-    # MVP: stable placeholder image (swap later for real AI generation)
-    theme = (req.theme or "Fantasy").strip()[:18]
-    label = urllib.parse.quote_plus(f"{theme} Map")
-    room.map_image_url = f"https://dummyimage.com/1200x800/111827/ffffff.png&text={label}"
 
-    # Persist + broadcast so Pixi updates for everyone
+@app.get("/")
+def root():
+    index_path = os.path.join(STATIC_DIR, "index.html")
+    if os.path.isfile(index_path):
+        return FileResponse(index_path)
+    return {"ok": True, "service": "arcane-engine-backend"}
+
+
+# ------------------------------------------------------------
+# Helpers
+# ------------------------------------------------------------
+def clamp_int(x: Any, lo: int, hi: int, default: int) -> int:
+    try:
+        v = int(x)
+    except Exception:
+        return default
+    return max(lo, min(hi, v))
+
+
+def norm_role(v: str | None) -> str:
+    r = (v or "player").strip().lower()
+    if r not in ("dm", "player"):
+        return "player"
+    return r
+
+
+# ------------------------------------------------------------
+# HTTP API
+# ------------------------------------------------------------
+@app.get("/api/rooms")
+def api_rooms():
+    return manager.list_rooms()
+
+
+@app.post("/api/rooms")
+def api_create_room(req: CreateRoomReq):
+    room = manager.create_room(req.name)
     db_upsert_room(room)
-    await broadcast_map_snapshot(room)
+    return {"room_id": room.room_id, "name": room.name}
+
+
+@app.post("/api/rooms/{room_id}/scene")
+def api_scene_update(room_id: str, req: SceneUpdateReq):
+    room = ensure_room_loaded(room_id)
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+    room.scene = {"title": req.title[:60], "text": req.text[:2400]}
+    db_upsert_room(room)
+    return {"ok": True}
+
+
+@app.post("/api/rooms/{room_id}/map_generate", response_model=MapGenerateResp)
+async def api_map_generate(room_id: str, req: MapGenerateReq):
+    room = ensure_room_loaded(room_id)
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    if not hasattr(room, "grid") or not isinstance(room.grid, dict):
+        room.grid = {"cols": 20, "rows": 20, "cell": 32}
+
+    room.grid["cols"] = clamp_int(room.grid.get("cols"), 1, 50, 20)
+    room.grid["rows"] = clamp_int(room.grid.get("rows"), 1, 50, 20)
+    room.grid["cell"] = clamp_int(room.grid.get("cell"), 8, 128, 32)
+
+    label = f"{(req.theme or 'Fantasy').strip()[:18]} Map"
+    text = urllib.parse.quote_plus(label)
+    room.map_image_url = f"https://dummyimage.com/1200x800/111827/ffffff.png&text={text}"
+
+    db_upsert_room(room)
+    await manager.broadcast(
+        room.room_id,
+        {
+            "type": "map.snapshot",
+            "grid": room.grid,
+            "map_image_url": room.map_image_url,
+        },
+    )
 
     return MapGenerateResp(
-        image_url=room.map_image_url,
         imageUrl=room.map_image_url,
         cols=room.grid["cols"],
         rows=room.grid["rows"],
@@ -413,102 +249,172 @@ async def generate_map_for_room(room_id: str, req: MapGenerateReq):
     )
 
 
-# ---------------------------
-# WebSocket
-# ---------------------------
+# ------------------------------------------------------------
+# WebSocket room
+# ------------------------------------------------------------
+
+# ✅ Compatibility alias (frontend expects /ws/rooms/{room_id})
+@app.websocket("/ws/rooms/{room_id}")
+async def ws_room_rooms(websocket: WebSocket, room_id: str, name: str, role: str):
+    # Frontend connects to /ws/rooms/{room_id}?name=...&role=...
+    await ws_room(websocket, room_id, name, role)
+
 
 @app.websocket("/ws/{room_id}")
-async def ws_room(ws: WebSocket, room_id: str):
-    await ws.accept()
+async def ws_room(websocket: WebSocket, room_id: str, name: str, role: str):
+    await websocket.accept()
 
-    # Assign a connection id + user id (MVP)
-    user_id = ws.query_params.get("userId") or uuid.uuid4().hex[:8]
-    role = ws.query_params.get("role") or "player"  # dm|player
-
-    room = manager.get_room(room_id)
+    # ✅ DB fallback: join works even after uvicorn reload
+    room = ensure_room_loaded(room_id)
     if not room:
-        room = manager.create_room(room_id)
+        await websocket.send_json({"type": "error", "message": "Room not found"})
+        await websocket.close()
+        return
 
-    ensure_room_map_fields(room)
-    db_load_room_state(room)
-    ensure_room_map_fields(room)
+    role = (role or "").lower().strip()
+    if role not in ("dm", "player"):
+        role = "player"
 
-    conn = ClientConn(ws=ws, user_id=user_id, role=role)
+    ok, reason = manager.can_join(room, role)
+    if not ok:
+        await websocket.send_json({"type": "error", "message": reason})
+        await websocket.close()
+        return
+
+    # map fields
+    if not hasattr(room, "grid") or not isinstance(room.grid, dict):
+        room.grid = {"cols": 20, "rows": 20, "cell": 32}
+    room.grid["cols"] = clamp_int(room.grid.get("cols"), 1, 50, 20)
+    room.grid["rows"] = clamp_int(room.grid.get("rows"), 1, 50, 20)
+    room.grid["cell"] = clamp_int(room.grid.get("cell"), 8, 128, 32)
+    if not hasattr(room, "map_image_url"):
+        room.map_image_url = ""
+
+    user_id = f"{int(time.time() * 1000)}-{os.urandom(2).hex()}"
+    name = (name or role).strip()[:24]
+
+    conn = ClientConn(user_id=user_id, name=name, role=role, websocket=websocket)
     manager.add_client(room_id, conn)
 
-    # Send initial snapshot
-    await ws_send(
-        conn,
-        {
-            "type": "room.joined",
-            "roomId": room_id,
-            "userId": user_id,
-            "role": role,
-        },
-    )
-    await broadcast_map_snapshot(room)
-
-    # Notify others
-    await ws_broadcast(room, {"type": "room.presence", "event": "join", "userId": user_id, "role": role})
-
     try:
+        await websocket.send_json(
+            {
+                "type": "state.init",
+                "room_id": room.room_id,
+                "me": {"user_id": user_id, "name": name, "role": role},
+                "members": manager.get_members(room_id),
+                "scene": getattr(room, "scene", {"title": "", "text": ""}),
+                "grid": getattr(room, "grid", {"cols": 20, "rows": 20, "cell": 32}),
+                "map_image_url": getattr(room, "map_image_url", "") or "",
+            }
+        )
+
+        await manager.broadcast(
+            room_id,
+            {
+                "type": "member.joined",
+                "member": {"user_id": user_id, "name": name, "role": role},
+            },
+            exclude_user_id=user_id,
+        )
+
         while True:
-            msg = await ws.receive_json()
-            mtype = msg.get("type")
+            data = await websocket.receive_json()
+            msg_type = (data.get("type") or "").strip()
 
-            # chat (table + narration kept in your existing client)
-            if mtype == "chat.message":
-                await ws_broadcast(room, msg)
+            if msg_type == "chat.send":
+                text = (data.get("text") or "").strip()
+                if not text:
+                    continue
 
-            # dice
-            elif mtype == "dice.roll":
-                # expects: {type:"dice.roll", expr:"1d20+3", ...}
-                expr = str(msg.get("expr") or "")
-                rolled = parse_and_roll(expr)
-                out = {**msg, "result": rolled}
-                await ws_broadcast(room, out)
+                channel = (data.get("channel") or "table").strip().lower()
+                if channel not in ("table", "narration"):
+                    channel = "table"
+                if role != "dm" and channel != "table":
+                    await websocket.send_json({"type": "error", "message": "Players can only post to Table Chat."})
+                    continue
 
-            # tokens
-            elif mtype == "token.add":
-                token = msg.get("token") or {}
-                token_id = token.get("id") or uuid.uuid4().hex[:10]
-                token["id"] = token_id
-                room.tokens[str(token_id)] = token
-                db_upsert_token(room_id, token)
-                await ws_broadcast(room, {"type": "token.added", "token": token})
+                entry = {
+                    "type": "chat.message",
+                    "ts": time.time(),
+                    "user_id": user_id,
+                    "name": name,
+                    "role": role,
+                    "channel": channel,
+                    "text": text,
+                }
+                await manager.broadcast(room_id, entry)
 
-            elif mtype == "token.update":
-                token = msg.get("token") or {}
-                tid = str(token.get("id") or "")
-                if tid:
-                    room.tokens[tid] = token
-                    db_upsert_token(room_id, token)
-                    await ws_broadcast(room, {"type": "token.updated", "token": token})
+                if role == "player" and getattr(room, "ai_mode", "auto") in ("auto", "assist"):
+                    maybe = maybe_ai_response(room_id=room_id, text=text)
+                    if maybe:
+                        await manager.broadcast(
+                            room_id,
+                            {
+                                "type": "chat.message",
+                                "ts": time.time(),
+                                "user_id": "ai",
+                                "name": "Arcane",
+                                "role": "dm",
+                                "channel": "narration",
+                                "text": maybe,
+                            },
+                        )
+                continue
 
-            elif mtype == "token.remove":
-                tid = str(msg.get("tokenId") or "")
-                if tid and tid in room.tokens:
-                    room.tokens.pop(tid, None)
-                    db_delete_token(room_id, tid)
-                    await ws_broadcast(room, {"type": "token.removed", "tokenId": tid})
+            if msg_type == "scene.update":
+                if role != "dm":
+                    await websocket.send_json({"type": "error", "message": "DM only."})
+                    continue
+                title = (data.get("title") or "")[:60]
+                text = (data.get("text") or "")[:2400]
+                room.scene = {"title": title, "text": text}
+                db_upsert_room(room)
+                await manager.broadcast(room.room_id, {"type": "scene.snapshot", "scene": room.scene})
+                continue
 
-            # map image set (if client uses it)
-            elif mtype == "map.setImage":
-                url = (msg.get("imageUrl") or msg.get("image_url") or "").strip()
-                if url:
-                    room.map_image_url = url
-                    db_upsert_room(room)
-                    await broadcast_map_snapshot(room)
+            if msg_type == "dice.roll":
+                expr = (data.get("expr") or "").strip()
+                if not expr:
+                    continue
+                result = roll_dice(expr)
+                await manager.broadcast(
+                    room_id,
+                    {"type": "dice.result", "user_id": user_id, "name": name, "role": role, "expr": expr, **result},
+                )
+                continue
 
-            else:
-                # passthrough for any other MVP messages
-                await ws_broadcast(room, msg)
+            if msg_type == "grid.set":
+                if role != "dm":
+                    await websocket.send_json({"type": "error", "message": "DM only."})
+                    continue
+                room.grid["cols"] = clamp_int(data.get("cols"), 1, 50, room.grid["cols"])
+                room.grid["rows"] = clamp_int(data.get("rows"), 1, 50, room.grid["rows"])
+                room.grid["cell"] = clamp_int(data.get("cell"), 8, 128, room.grid["cell"])
+                db_upsert_room(room)
+                await manager.broadcast(
+                    room.room_id,
+                    {"type": "map.snapshot", "grid": room.grid, "map_image_url": getattr(room, "map_image_url", "")},
+                )
+                continue
+
+            if msg_type == "map.set_url":
+                if role != "dm":
+                    await websocket.send_json({"type": "error", "message": "DM only."})
+                    continue
+                url = (data.get("url") or "").strip()
+                room.map_image_url = url
+                db_upsert_room(room)
+                await manager.broadcast(
+                    room.room_id,
+                    {"type": "map.snapshot", "grid": room.grid, "map_image_url": getattr(room, "map_image_url", "")},
+                )
+                continue
+
+            await websocket.send_json({"type": "error", "message": f"Unknown message type: {msg_type}"})
 
     except WebSocketDisconnect:
         pass
     finally:
-        manager.remove_client(room_id, conn)
-        try:
-            await ws_broadcast(room, {"type": "room.presence", "event": "leave", "userId": user_id})
-        except Exception:
-            pass
+        manager.remove_client(room_id, user_id)
+        await manager.broadcast(room_id, {"type": "member.left", "user_id": user_id})

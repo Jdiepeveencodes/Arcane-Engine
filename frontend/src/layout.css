@@ -1,16 +1,24 @@
 /* frontend/src/layout.css */
 
 :root{
-  --left-col: 260px;
-  --chat-col: 360px;
-  --top-row: 220px;
-  --topbar-h: 56px;
+  --left-col: 380px;
+  --chat-col: 330px;
 
-  /* DM rail width (controls) */
-  --right-col: 420px;
+  --top-row: 185px;
+  --topbar-h: 44px;
 
-  /* Inventory overlay width */
-  --inv-col: 420px;
+  /* DM rail width */
+  --right-col: 440px;
+
+  /* Player inventory dock width */
+  --inv-col: 440px;
+
+  /* minimal outer buffer */
+  --page-pad: 2px;
+
+  /* ✅ tighten inside map panel */
+  --map-pad: 4px;
+  --map-gap: 3px;
 }
 
 html, body, #root{
@@ -18,51 +26,51 @@ html, body, #root{
   margin: 0;
 }
 
+.topbar{
+  height: var(--topbar-h);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+}
+
+.topbar .brand{ display:none; }
+
 .layout2{
   display: grid;
   grid-template-columns: var(--left-col) 1fr var(--chat-col);
   grid-template-rows: var(--top-row) 1fr;
 
-  /* row gap stays, column gap removed so inventory can touch chat */
-  gap: 12px 0px;
+  padding: var(--page-pad);
+  gap: 10px 6px;
 
   height: calc(100vh - var(--topbar-h));
+  box-sizing: border-box;
 }
 
-/* LEFT COLUMN */
 .leftCol{
   grid-column: 1;
   grid-row: 1 / span 2;
 
+  min-height: 0;
+  overflow: hidden;
+
   display: flex;
   flex-direction: column;
-  gap: 12px;
-
-  min-height: 0;
-
-  /* allow scroll if viewport is short */
-  overflow: auto;
-
-  /* extra safety so bottom controls never clip */
-  padding-bottom: 16px;
+  gap: 10px;
 }
 
-/* Push dice dock to bottom of left column */
-.diceDockWrap{
-  margin-top: auto;
-  padding-bottom: 8px; /* small extra buffer */
-}
-
-/* MIDDLE TOP */
 .narrCol{
   grid-column: 2;
   grid-row: 1;
 
   min-height: 0;
   overflow: hidden;
+
+  display: flex;
+  flex-direction: column;
 }
 
-/* RIGHT COLUMN — FULL HEIGHT CHAT */
 .tableCol{
   grid-column: 3;
   grid-row: 1 / span 2;
@@ -74,77 +82,94 @@ html, body, #root{
   flex-direction: column;
 }
 
-/* BOTTOM MIDDLE — MAP ZONE */
 .mapRow{
   grid-column: 2;
   grid-row: 2;
-
   min-height: 0;
   overflow: hidden;
+  position: relative;
 }
 
-/* MAP SHELL */
+.panel{
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(10, 14, 20, 0.72);
+  border: 1px solid rgba(255,255,255,0.08);
+  box-sizing: border-box;
+}
+
+/* ===== MAP SHELL ===== */
 .mapShell{
-  position: relative; /* REQUIRED for inventory overlay */
-  min-height: 0;
   height: 100%;
+  min-height: 0;
 
   display: grid;
-  grid-template-columns: 1fr 0px; /* default collapsed, enabled by dmRail */
+  align-items: stretch;
+
+  /* ✅ close the red gap */
+  gap: var(--map-gap);
+
+  /* ✅ reduce internal padding */
+  padding: var(--map-pad);
+
+  position: relative;
 }
 
-/* DM rail enabled */
 .mapShell.dmRail{
-  grid-template-columns: 1fr var(--right-col);
+  grid-template-columns: 1fr minmax(var(--right-col), var(--right-col));
 }
 
-/* Player rail collapsed */
 .mapShell.noRail{
-  grid-template-columns: 1fr 0px;
+  grid-template-columns: 1fr minmax(var(--inv-col), var(--inv-col));
 }
 
-/* MAP CANVAS */
 .mapCanvasWrap{
   min-height: 0;
   overflow: hidden;
 }
 
-/* DM CONTROLS RAIL */
 .mapDMWrap{
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable both-edges;
+}
+
+.mapDMWrap *{
+  max-width: 100%;
+}
+
+/* ✅ Player inventory dock */
+.invDock{
   min-height: 0;
   overflow: auto;
 }
 
-/* INVENTORY OVERLAY (PLAYER ONLY) */
-.invOverlay{
-  position: absolute;
-  top: 0;
-  right: 0;          /* TOUCHES table chat */
-  bottom: 0;
+/* ===== Loot panel UI polish ===== */
+.lootPanel{ padding: 10px; }
+.lootHeader{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.lootTitle{ font-weight:700; font-size:14px; letter-spacing:0.2px; }
+.lootGenerateBtn{ padding:6px 10px; }
+.lootGrid{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px; }
+.lootField{ display:grid; gap:6px; }
+.lootLabel{ font-size:12px; opacity:0.8; }
+.lootChecksRow{ display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-top:10px; padding-top:8px; border-top: 1px solid rgba(255,255,255,0.08); }
+.lootCheck{ display:inline-flex; gap:8px; align-items:center; font-size:12px; opacity:0.9; }
+.lootChecksDivider{ width:1px; height:14px; background: rgba(255,255,255,0.12); margin:0 2px; }
+.lootAdvanced{ margin-top:10px; }
+.lootAdvanced > summary{ cursor:pointer; font-size:12px; opacity:0.85; user-select:none; }
+.lootAdvancedGrid{ margin-top:10px; display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+.lootTags{ grid-column: 1 / span 2; }
+.lootHint{ margin-top:8px; font-size:12px; opacity:0.7; }
 
-  width: var(--inv-col);
-  z-index: 5;
-
-  display: flex;
-  flex-direction: column;
-}
-
-/* Allow interaction only on the panel */
-.invOverlay{
-  pointer-events: none;
-}
-.invOverlay > *{
-  pointer-events: auto;
-}
-
-/* Mobile stacking */
-@media (max-width: 1100px){
+@media (max-width: 1200px){
   .layout2{
     grid-template-columns: 1fr;
     grid-template-rows: auto;
-    gap: 12px;
     height: auto;
     min-height: calc(100vh - var(--topbar-h));
+    gap: 12px;
+    padding: 10px;
   }
 
   .leftCol,
@@ -154,11 +179,6 @@ html, body, #root{
     grid-column: 1;
     grid-row: auto;
     min-height: 240px;
-  }
-
-  .invOverlay{
-    position: static;
-    width: 100%;
   }
 
   .mapShell.dmRail,

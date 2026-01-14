@@ -9,13 +9,14 @@ import ChannelChat from "./components/ChannelChat";
 import MapPanelPixi from "./components/MapPanelPixi";
 import MapDMControls from "./components/MapDMControls";
 import InventoryPanel from "./components/InventoryPanel";
+import DMLootPanel from "./components/DMLootPanel";
 
 import { useRoomSocket } from "./hooks/useRoomSocket";
 
 const EMPTY_DICE = { d4: 0, d6: 0, d8: 0, d10: 0, d12: 0, d20: 0, d100: 0 } as const;
 type DieKey = keyof typeof EMPTY_DICE;
 
-export default function App(){
+export default function App() {
   const room = useRoomSocket();
 
   const [roomName, setRoomName] = useState("");
@@ -55,7 +56,7 @@ export default function App(){
     room.addLocalSystem(`TOTAL → ${sum}`);
   }, [room.chatLog, room]);
 
-  async function createRoom(){
+  async function createRoom() {
     const res = await fetch("/api/rooms", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -65,23 +66,23 @@ export default function App(){
     room.setRoomId(data.room_id);
   }
 
-  function sendChannel(channel: "table" | "narration", text: string){
+  function sendChannel(channel: "table" | "narration", text: string) {
     room.sendChat(text, channel);
   }
 
-  function clearDice(){
+  function clearDice() {
     setDiceCounts({ ...EMPTY_DICE });
     setDiceExprText("");
     setDiceMod("0");
   }
 
-  function rollOne(expr: string, mode: string){
+  function rollOne(expr: string, mode: string) {
     pendingBatchRef.current.active = false;
     pendingBatchRef.current.expectedResults = 0;
     room.rollDice(expr, mode);
   }
 
-  function rollBatch(exprs: string[], mode: string){
+  function rollBatch(exprs: string[], mode: string) {
     if (exprs.length <= 1) {
       rollOne(exprs[0] || "", mode);
       return;
@@ -113,7 +114,16 @@ export default function App(){
 
       <main className="layout2">
         <div className="leftCol">
-          <ScenePanel scene={room.scene} members={room.members} />
+          <ScenePanel scene={room.scene ?? { title: "—", text: "—" }} members={room.members ?? []} />
+
+          {isDM && (
+            <DMLootPanel
+              connected={room.connected}
+              isDM={isDM}
+              members={room.members}
+              onGenerateLoot={room.dmGenerateLoot}
+            />
+          )}
 
           <div className="diceDockWrap">
             <DiceDock
@@ -135,14 +145,15 @@ export default function App(){
 
         <div className="narrCol">
           <ChannelChat
-            title="Narration"
-            channel="narration"
-            connected={room.connected}
-            role={room.role}
-            chatLog={room.chatLog}
-            input={narrInput}
-            setInput={setNarrInput}
-            onSend={sendChannel}
+              title="Narration"
+              channel="narration"
+              connected={room.connected}
+              role={room.role}
+              chatLog={room.chatLog ?? []}
+              input={narrInput}
+              setInput={setNarrInput}
+              onSend={sendChannel}
+              readOnly
           />
         </div>
 
@@ -173,8 +184,9 @@ export default function App(){
               />
             </div>
 
-            <div className="mapDMWrap">
-              {isDM && (
+            {/* ✅ SECOND COLUMN: DM controls OR Player inventory (never both) */}
+            {isDM ? (
+              <div className="mapDMWrap">
                 <MapDMControls
                   isDM={isDM}
                   roomId={room.roomId}
@@ -188,11 +200,9 @@ export default function App(){
                   removeToken={room.removeToken}
                   updateToken={room.updateToken}
                 />
-              )}
-            </div>
-
-            {!isDM && (
-              <div className="invOverlay">
+              </div>
+            ) : (
+              <div className="invDock">
                 <InventoryPanel
                   role={room.role}
                   youUserId={room.you?.user_id || ""}

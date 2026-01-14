@@ -8,7 +8,7 @@ type Props = {
   inventories: Record<string, PlayerInventory>;
   equipItem: (toSlot: EquipSlot, item: Partial<Item>, targetUserId?: string) => boolean;
   unequipSlot: (slot: EquipSlot, targetUserId?: string) => boolean;
-  addToBag?: (item: Partial<Item>, targetUserId?: string) => boolean; // temporary for testing
+  addToBag?: (item: Partial<Item>, targetUserId?: string) => boolean; // optional dev tool
 };
 
 type DragPayload =
@@ -122,18 +122,15 @@ export default function InventoryPanel({
 
     const item = payload.item;
 
-    // Check accept rules (ring special)
     const accepts = SLOT_ACCEPTS[toSlot];
     if (!accepts(item)) return;
 
-    // If dragging from equip to another slot: unequip then equip (swap behavior is server-safe)
     if (payload.from === "equip") {
       unequipSlot(payload.slot);
       equipItem(toSlot, item);
       return;
     }
 
-    // from bag
     equipItem(toSlot, item);
   }
 
@@ -144,21 +141,16 @@ export default function InventoryPanel({
     const payload = parseDragPayload(e);
     if (!payload) return;
 
-    // If from equipment, unequip it -> server moves to bag
     if (payload.from === "equip") {
       unequipSlot(payload.slot);
       return;
     }
-
-    // If from bag to bag, ignore for now (we’ll add bag reordering later)
   }
 
-  // Bag grid sizing (Diablo-like)
   const BAG_COLS = 10;
   const BAG_ROWS = 4;
   const BAG_SLOTS = BAG_COLS * BAG_ROWS;
 
-  // Render bag items into slots (no stacking yet, no sizes yet)
   const bagSlots: Array<Item | null> = Array.from({ length: BAG_SLOTS }, (_, i) => bag[i] || null);
 
   return (
@@ -166,32 +158,29 @@ export default function InventoryPanel({
       <div className="invTitleBar">
         <div>
           <div className="invTitle">Inventory</div>
-          <div className="invSub muted">Player-only • Drag & drop</div>
+          <div className="invSub muted">Drag & drop • Double-click to equip</div>
         </div>
 
-        {/* Temporary test injection until DM loot awarding exists */}
         <div className="invTestRow">
           {addToBag ? (
             testItems.map((t) => (
-              <button key={t.id} onClick={() => addToBag(t)} title="Add to bag (temporary test)">
+              <button key={t.id} onClick={() => addToBag(t)} title="Dev: add test item">
                 + {t.name}
               </button>
             ))
           ) : (
-            <span className="muted">addToBag() not wired yet</span>
+            <span className="muted" />
           )}
         </div>
       </div>
 
       <div className="invBody">
-        {/* Equipment */}
         <div className="equipPanel">
           <div className="panelTitle">Equipment</div>
 
           <div className="equipGrid">
             {SLOT_ORDER.map(({ slot, label }) => {
               const it = (equipment as any)?.[slot] as Item | undefined;
-
               const isOver = dragOverSlot === slot;
 
               return (
@@ -232,7 +221,6 @@ export default function InventoryPanel({
           </div>
         </div>
 
-        {/* Bag */}
         <div
           className={`bagPanel ${dragOverSlot === "bag" ? "over" : ""}`}
           onDragOver={(e) => {

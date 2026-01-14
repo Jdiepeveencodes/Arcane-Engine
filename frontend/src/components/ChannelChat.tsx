@@ -8,7 +8,7 @@ type Props = {
   channel: ChatChannel;
   connected: boolean;
   role: Role;
-  chatLog: ChatMsg[];
+  chatLog?: ChatMsg[] | null;
   input: string;
   setInput: (v: string) => void;
   onSend: (channel: ChatChannel, text: string) => void;
@@ -24,120 +24,73 @@ export default function ChannelChat({
   input,
   setInput,
   onSend,
-  canWrite
+  canWrite,
 }: Props) {
-  const logRef = useRef<HTMLDivElement | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
 
-  const writable = canWrite ?? (channel === "table" ? true : role === "dm");
+  const safeLog = Array.isArray(chatLog) ? chatLog : [];
 
   const filtered = useMemo(() => {
-    return chatLog.filter((m: any) => {
-      if (m.type === "dice.result") return channel === "table"; // dice -> table
-      if (m.type === "system.notice") return channel === "table"; // system -> table only
-      if (m.type === "error") return true; // errors can show everywhere
-      if (m.type !== "chat.message") return false;
-
-      const ch = (m.channel || "table") as ChatChannel;
-      return ch === channel;
+    return safeLog.filter((m: any) => {
+      if (!m) return false;
+      if (m.type === "chat.message") return (m.channel || "table") === channel;
+      if (m.type === "dice.result") return (m.channel || "table") === channel;
+      return false;
     });
-  }, [chatLog, channel]);
+  }, [safeLog, channel]);
 
   useEffect(() => {
-    if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
+    listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
   }, [filtered.length]);
 
+  const writable = canWrite ?? (channel === "table" || role === "dm");
+
   function sendNow() {
-    const text = input.trim();
-    if (!text) return;
-    onSend(channel, text);
+    const t = input.trim();
+    if (!t) return;
+    onSend(channel, t);
     setInput("");
   }
 
   return (
-    <section className="panel">
-      <h2 style={{ margin: 0 }}>{title}</h2>
+    <section className="panel chatPanel">
+      <h2>{title}</h2>
 
-      <div className="log" ref={logRef}>
+      <div className="chatLog" ref={listRef}>
         {filtered.map((m: any, idx: number) => {
-          if (m.type === "chat.message") {
-            return (
-              <div className="msg" key={idx}>
-                <b>{m.name}</b>: {m.text}
-              </div>
-            );
-          }
-
           if (m.type === "dice.result") {
             return (
-              <div className="msg diceMsg" key={idx}>
-                <span className="diceIcon">🎲</span>
-                <span className="diceWho">
-                  <b>{m.name}</b>
-                </span>
-                <span className="diceText">
-                  rolled <code className="diceExpr">{m.expr}</code>
-                </span>
-                <span className="diceArrow">→</span>
-                <span className="diceTotal">{m.total}</span>
-                <span className="diceDetail muted">({m.detail})</span>
-              </div>
-            );
-          }
-
-          if (m.type === "system.notice") {
-            const isTotal = typeof m.message === "string" && m.message.trim().toUpperCase().startsWith("TOTAL");
-            return (
-              <div className={"msg sys " + (isTotal ? "totalLine" : "")} key={idx}>
-                {isTotal ? (
-                  <>
-                    <span className="totalDivider" />
-                    <span className="totalInner">
-                      <span className="totalIcon">🧮</span>
-                      <span className="totalText">{m.message}</span>
-                    </span>
-                  </>
-                ) : (
-                  <>• {m.message}</>
-                )}
-              </div>
-            );
-          }
-
-          if (m.type === "error") {
-            return (
-              <div className="msg err" key={idx}>
-                ⚠ {m.message}
+              <div key={idx} className="chatLine">
+                <span className="muted">{m.name || "?"}</span>{" "}
+                <span className="pill">{m.expr || "roll"}</span>{" "}
+                <span className="pill">{m.total ?? "?"}</span>
+                {m.detail ? <div className="muted">({String(m.detail)})</div> : null}
               </div>
             );
           }
 
           return (
-            <div className="msg" key={idx}>
-              {JSON.stringify(m)}
+            <div key={idx} className="chatLine">
+              <span className="muted">{m.name || "?"}</span>: {m.text}
             </div>
           );
         })}
       </div>
 
-      <div className="row" style={{ marginTop: 10 }}>
+      <div className="chatInputRow">
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder={channel === "table" ? "Say something..." : "Narrate the scene... (DM only)"}
-          onKeyDown={(e) => e.key === "Enter" && sendNow()}
-          style={{ flex: 1 }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") sendNow();
+          }}
+          placeholder={channel === "narration" ? "Narrate the scene..." : "Say something..."}
           disabled={!connected || !writable}
         />
         <button onClick={sendNow} disabled={!connected || !writable}>
           Send
         </button>
       </div>
-
-      {!writable && channel === "narration" && (
-        <div className="muted" style={{ marginTop: 8 }}>
-          Narration is DM-only.
-        </div>
-      )}
     </section>
   );
 }
