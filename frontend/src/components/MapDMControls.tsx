@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import type { GridState, Member, Token, TokenKind } from "../hooks/useRoomSocket";
+import { useEffect, useMemo, useState } from "react";
+import type { GridState, LightingState, Member, Token, TokenKind } from "../hooks/useRoomSocket";
 
 type Props = {
   isDM: boolean;
@@ -9,9 +9,13 @@ type Props = {
   grid: GridState;
   mapImageUrl: string;
   tokens: Token[];
+  lighting: LightingState;
+  playerView: boolean;
+  setPlayerView: (v: boolean) => void;
 
   updateGrid: (g: Partial<GridState>) => void;
   setMapImage: (url: string) => void;
+  setLighting: (lighting: LightingState) => void;
   addToken: (t: Partial<Token>) => void;
   removeToken: (id: string) => void;
   updateToken: (id: string, patch: Partial<Token>) => void;
@@ -20,7 +24,7 @@ type Props = {
 const kindOptions: TokenKind[] = ["player", "npc", "object"];
 
 export default function MapDMControls(props: Props) {
-  const { isDM, roomId, members, grid, mapImageUrl, tokens, updateGrid, setMapImage, addToken, removeToken, updateToken } = props;
+  const { isDM, roomId, members, grid, mapImageUrl, tokens, lighting, playerView, setPlayerView, updateGrid, setMapImage, setLighting, addToken, removeToken, updateToken } = props;
 
   const players = useMemo(() => members.filter((m) => m.role === "player"), [members]);
 
@@ -29,6 +33,16 @@ export default function MapDMControls(props: Props) {
   const [cell, setCell] = useState(String(grid.cell));
 
   const [img, setImg] = useState(mapImageUrl || "");
+
+  const [fogEnabled, setFogEnabled] = useState(!!lighting?.fog_enabled);
+  const [darkness, setDarkness] = useState(!!lighting?.darkness);
+  const [ambientRadius, setAmbientRadius] = useState(String(lighting?.ambient_radius ?? 0));
+
+  useEffect(() => {
+    setFogEnabled(!!lighting?.fog_enabled);
+    setDarkness(!!lighting?.darkness);
+    setAmbientRadius(String(lighting?.ambient_radius ?? 0));
+  }, [lighting?.fog_enabled, lighting?.darkness, lighting?.ambient_radius]);
 
   // “AI Map Generator” (currently placeholder backend)
   const [prompt, setPrompt] = useState("Small cave entrance with a winding tunnel and a chamber.");
@@ -47,6 +61,7 @@ export default function MapDMControls(props: Props) {
   const [newAC, setNewAC] = useState("10");
   const [newInit, setNewInit] = useState("");
   const [newVision, setNewVision] = useState("6");
+  const [newDarkvision, setNewDarkvision] = useState(false);
 
   if (!isDM) return null;
 
@@ -81,6 +96,14 @@ export default function MapDMControls(props: Props) {
   const doClearMap = () => {
     setImg("");
     setMapImage("");
+  };
+
+  const applyLighting = () => {
+    setLighting({
+      fog_enabled: !!fogEnabled,
+      darkness: !!darkness,
+      ambient_radius: clamp(toInt(ambientRadius, 0), 0, 50),
+    });
   };
 
   const doGenerate = async () => {
@@ -144,6 +167,7 @@ export default function MapDMControls(props: Props) {
       color: parseColor(newColor),
       initiative: newInit.trim() ? toInt(newInit, 0) : null,
       vision_radius: newVision.trim() ? toInt(newVision, 6) : null,
+      darkvision: newDarkvision,
       hp: kind === "player" ? toInt(newHP, 10) : null,
       ac: kind === "player" ? toInt(newAC, 10) : null,
     });
@@ -217,6 +241,32 @@ export default function MapDMControls(props: Props) {
         <button onClick={doClearMap}>Clear</button>
       </div>
 
+      <div style={{ marginBottom: 6 }}>
+        <b>Fog of War</b>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+        <label style={{ fontSize: 12, opacity: 0.8, display: "flex", gap: 8, alignItems: "center" }}>
+          <input type="checkbox" checked={fogEnabled} onChange={(e) => setFogEnabled(e.target.checked)} />
+          Enable fog
+        </label>
+        <label style={{ fontSize: 12, opacity: 0.8, display: "flex", gap: 8, alignItems: "center" }}>
+          <input type="checkbox" checked={darkness} onChange={(e) => setDarkness(e.target.checked)} />
+          Darkness mode
+        </label>
+      </div>
+      <label style={{ fontSize: 12, opacity: 0.8 }}>
+        Ambient radius (cells)
+        <input value={ambientRadius} onChange={(e) => setAmbientRadius(e.target.value)} style={{ width: "100%" }} />
+      </label>
+      <div style={{ display: "flex", gap: 8, marginTop: 8, marginBottom: 12 }}>
+        <button onClick={applyLighting} style={{ flex: 1 }}>
+          Apply Fog Settings
+        </button>
+        <button onClick={() => setPlayerView(!playerView)} style={{ width: 140 }}>
+          {playerView ? "Player View: On" : "Player View: Off"}
+        </button>
+      </div>
+
       {/* Add Token */}
       <div style={{ marginBottom: 6 }}>
         <b>Add Token</b>
@@ -279,6 +329,10 @@ export default function MapDMControls(props: Props) {
           Vision radius
           <input value={newVision} onChange={(e) => setNewVision(e.target.value)} />
         </label>
+        <label style={{ fontSize: 12, opacity: 0.8, display: "flex", gap: 8, alignItems: "center" }}>
+          <input type="checkbox" checked={newDarkvision} onChange={(e) => setNewDarkvision(e.target.checked)} />
+          Darkvision
+        </label>
 
         {newKind === "player" ? (
           <>
@@ -335,6 +389,10 @@ export default function MapDMControls(props: Props) {
               </label>
             </div>
 
+            <label style={{ fontSize: 12, opacity: 0.8, display: "flex", gap: 8, alignItems: "center", marginTop: 6 }}>
+              <input type="checkbox" checked={!!t.darkvision} onChange={(e) => updateToken(t.id, { darkvision: e.target.checked })} />
+              Darkvision
+            </label>
             <div style={{ fontSize: 11, opacity: 0.65, marginTop: 6 }}>
               id: {t.id} • pos: ({t.x},{t.y})
             </div>

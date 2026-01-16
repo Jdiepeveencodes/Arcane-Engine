@@ -7,6 +7,7 @@ export type Member = { user_id: string; name: string; role: Role };
 export type Scene = { title: string; text: string };
 
 export type GridState = { cols: number; rows: number; cell: number };
+export type LightingState = { fog_enabled: boolean; ambient_radius: number; darkness: boolean };
 
 export type TokenKind = "player" | "npc" | "object";
 
@@ -23,6 +24,7 @@ export type Token = {
   ac?: number | null;
   initiative?: number | null;
   vision_radius?: number | null;
+  darkvision?: boolean | null;
 };
 
 /**
@@ -37,7 +39,6 @@ export type EquipSlot =
   | "bracers"
   | "shoulders"
   | "necklace"
-  | "gorget"
   | "head"
   | "ring1"
   | "ring2"
@@ -50,6 +51,9 @@ export type ItemDef = {
   tier?: number;
   tags?: string[];
   slot?: EquipSlot | "bag";
+  category?: string;
+  is_two_handed?: boolean;
+  magicType?: string;
 };
 
 export type PlayerInventory = {
@@ -57,6 +61,32 @@ export type PlayerInventory = {
   bag: ItemDef[];
   equipped: Partial<Record<EquipSlot, ItemDef | null>>;
 };
+
+export type LootBag = {
+  bag_id: string;
+  name: string;
+  type: "community" | "player";
+  items: ItemDef[];
+  created_at: number;
+  created_by: string;
+  target_user_id?: string | null;
+  visible_to_players?: boolean;
+};
+
+export type LootConfig = {
+  source: LootSource;
+  count: number;
+  tierMin: number;
+  tierMax: number;
+  allowMagic: boolean;
+  addElemental?: boolean;
+  bagName?: string;
+  categories: Array<"weapons" | "armor" | "jewelry">;
+  slots: string[];
+  tags: string[];
+};
+
+export type LootSource = "mob" | "chest" | "boss" | "shop" | "custom";
 
 export type ChatMsg =
   | { type: "chat.message"; ts?: number; user_id?: string; name?: string; role?: Role | "system"; channel?: Channel; text: string }
@@ -72,7 +102,9 @@ export type WsMessage =
         grid?: GridState;
         map_image_url?: string;
         tokens?: Token[];
+        lighting?: LightingState;
         inventories?: Record<string, PlayerInventory>;
+        loot_bags?: Record<string, LootBag>;
       };
       you?: { user_id: string; name: string; role: Role } | null;
       members?: Member[];
@@ -80,7 +112,12 @@ export type WsMessage =
     }
   | { type: "members.update"; members?: Member[] }
   | { type: "scene.update"; scene?: Scene }
-  | { type: "map.snapshot"; grid: GridState; map_image_url?: string; tokens?: Token[] }
+  | { type: "scene.snapshot"; scene?: Scene }
+  | { type: "map.snapshot"; grid: GridState; map_image_url?: string; tokens?: Token[]; lighting?: LightingState }
+  | { type: "token.snapshot"; tokens?: Token[] }
+  | { type: "token.added"; token: Token }
+  | { type: "token.updated"; token: Token }
+  | { type: "token.removed"; token_id: string }
   | { type: "token.moved"; token_id: string; x: number; y: number }
   | any;
 
@@ -112,8 +149,11 @@ export function useRoomSocket() {
   const [grid, setGrid] = useState<GridState>({ cols: 20, rows: 20, cell: 32 });
   const [mapImageUrl, setMapImageUrl] = useState("");
   const [tokens, setTokens] = useState<Token[]>([]);
+  const [lighting, setLightingState] = useState<LightingState>({ fog_enabled: false, ambient_radius: 0, darkness: false });
 
   const [inventories, setInventories] = useState<Record<string, PlayerInventory>>({});
+  const [lootBags, setLootBags] = useState<Record<string, LootBag>>({});
+  const [lootStatus, setLootStatus] = useState<string>("");
 
   useEffect(() => localStorage.setItem("dnd.roomId", roomId), [roomId]);
   useEffect(() => localStorage.setItem("dnd.name", name), [name]);
@@ -186,17 +226,51 @@ export function useRoomSocket() {
         if (msg.room?.grid) setGrid(msg.room.grid);
         setMapImageUrl(msg.room?.map_image_url || "");
         setTokens(Array.isArray(msg.room?.tokens) ? (msg.room?.tokens as any) : []);
+        if (msg.room?.lighting) setLightingState(msg.room.lighting);
         setInventories((msg.room?.inventories || {}) as any);
+        setLootBags((msg.room?.loot_bags || {}) as any);
         return;
       }
 
       if (msg.type === "members.update") return setMembers(Array.isArray(msg.members) ? msg.members : []);
-      if (msg.type === "scene.update") return setScene(msg.scene || { title: "—", text: "—" });
+      if (msg.type === "scene.update" || msg.type === "scene.snapshot") return setScene(msg.scene || { title: "—", text: "—" });
+      if (msg.type === "inventory.snapshot") return setInventories((msg.inventories || {}) as any);
+      if (msg.type === "loot.snapshot") {
+        setLootBags((msg.loot_bags || {}) as any);
+        const bagCount = Object.keys(msg.loot_bags || {}).length;
+        setLootStatus(`Items updated (${bagCount} container${bagCount === 1 ? "" : "s"}).`);
+        return;
+      }
+      if (msg.type === "error") {
+        setLootStatus(msg.message || "Server error.");
+        return;
+      }
 
       if (msg.type === "map.snapshot") {
         setGrid(msg.grid);
         setMapImageUrl(msg.map_image_url || "");
         setTokens(Array.isArray(msg.tokens) ? (msg.tokens as any) : []);
+        if (msg.lighting) setLightingState(msg.lighting);
+        return;
+      }
+      if (msg.type === "token.snapshot") {
+        setTokens(Array.isArray(msg.tokens) ? (msg.tokens as any) : []);
+        return;
+      }
+      if (msg.type === "token.added") {
+        setTokens((prev) => [...prev, msg.token as any]);
+        return;
+      }
+      if (msg.type === "token.updated") {
+        setTokens((prev) => prev.map((t: any) => (t.id === msg.token?.id ? { ...t, ...(msg.token as any) } : t)));
+        return;
+      }
+      if (msg.type === "token.removed") {
+        setTokens((prev) => prev.filter((t: any) => t.id !== msg.token_id));
+        return;
+      }
+      if (msg.type === "token.moved") {
+        setTokens((prev) => prev.map((t: any) => (t.id === msg.token_id ? { ...t, x: msg.x, y: msg.y } : t)));
         return;
       }
 
@@ -215,7 +289,7 @@ export function useRoomSocket() {
     (channel: Channel, text: string) => {
       const t = text.trim();
       if (!t) return false;
-      return send({ type: "chat.message", channel, text: t });
+      return send({ type: "chat.send", channel, text: t });
     },
     [send]
   );
@@ -238,16 +312,57 @@ export function useRoomSocket() {
     (token_id: string, x: number, y: number) => send({ type: "token.move", token_id, x, y }),
     [send]
   );
-  const updateGrid = useCallback((cols: number, rows: number, cell: number) => send({ type: "grid.update", cols, rows, cell }), [send]);
-  const setMapImage = useCallback((url: string) => send({ type: "map.set", url }), [send]);
+  const updateGrid = useCallback(
+    (patch: Partial<GridState>) => {
+      const next = {
+        cols: patch.cols ?? grid.cols,
+        rows: patch.rows ?? grid.rows,
+        cell: patch.cell ?? grid.cell,
+      };
+      const ok = send({ type: "grid.set", ...next });
+      if (ok) setGrid(next);
+      return ok;
+    },
+    [send, grid]
+  );
+  const setMapImage = useCallback((url: string) => send({ type: "map.set_url", url }), [send]);
+  const setLighting = useCallback(
+    (next: LightingState) => {
+      const ok = send({ type: "map.lighting.set", lighting: next });
+      if (ok) setLightingState(next);
+      return ok;
+    },
+    [send]
+  );
   const addToken = useCallback((token: Partial<Token>) => send({ type: "token.add", token }), [send]);
   const removeToken = useCallback((token_id: string) => send({ type: "token.remove", token_id }), [send]);
   const updateToken = useCallback((token_id: string, patch: Partial<Token>) => send({ type: "token.update", token_id, patch }), [send]);
 
   const requestInventorySnapshot = useCallback(() => send({ type: "inventory.snapshot" }), [send]);
-  const addToBag = useCallback((itemId: string) => send({ type: "inventory.add", itemId }), [send]);
-  const equipItem = useCallback((itemId: string, slot?: EquipSlot) => send({ type: "inventory.equip", itemId, slot }), [send]);
+  const addToBag = useCallback((item: Partial<any>) => send({ type: "inventory.add", item }), [send]);
+  const equipItem = useCallback((slot: EquipSlot, item: Partial<any>) => send({ type: "inventory.equip", itemId: item.id, slot }), [send]);
   const unequipSlot = useCallback((slot: EquipSlot) => send({ type: "inventory.unequip", slot }), [send]);
+  const dropItem = useCallback((itemId: string) => send({ type: "inventory.drop", itemId }), [send]);
+
+  // Loot bag functions
+  const generateLoot = useCallback((items: any[], bagName: string, bagType: "community" | "player" = "community") => send({ type: "loot.generate", items, bag_name: bagName, bag_type: bagType }), [send]);
+  const dmGenerateLoot = useCallback(
+    (targetUserId: string, config: LootConfig) => {
+      const ok = send({
+        type: "loot.generate",
+        target_user_id: targetUserId,
+        config,
+        bag_name: config?.bagName || "",
+      });
+      setLootStatus(ok ? "Requesting loot..." : "Not connected.");
+      return ok;
+    },
+    [send]
+  );
+  const setLootVisibility = useCallback((bagId: string, visible: boolean) => send({ type: "loot.set_visibility", bag_id: bagId, visible }), [send]);
+  const distributeLoot = useCallback((bagId: string, itemId: string, targetUserId: string) => send({ type: "loot.distribute", bag_id: bagId, item_id: itemId, target_user_id: targetUserId }), [send]);
+  const discardLoot = useCallback((bagId: string, itemId: string) => send({ type: "loot.discard", bag_id: bagId, item_id: itemId }), [send]);
+  const requestLootSnapshot = useCallback(() => send({ type: "loot.snapshot" }), [send]);
 
   // ensure we close socket when the hook unmounts
   useEffect(() => {
@@ -280,11 +395,13 @@ export function useRoomSocket() {
       addLocalSystem,
 
       grid,
+      lighting,
       mapImageUrl,
       tokens,
       moveToken,
       updateGrid,
       setMapImage,
+      setLighting,
       addToken,
       removeToken,
       updateToken,
@@ -294,6 +411,16 @@ export function useRoomSocket() {
       addToBag,
       equipItem,
       unequipSlot,
+      dropItem,
+
+      lootBags,
+      lootStatus,
+      generateLoot,
+      dmGenerateLoot,
+      setLootVisibility,
+      distributeLoot,
+      discardLoot,
+      requestLootSnapshot,
     }),
     [
       status,
@@ -312,11 +439,13 @@ export function useRoomSocket() {
       rollDice,
       addLocalSystem,
       grid,
+      lighting,
       mapImageUrl,
       tokens,
       moveToken,
       updateGrid,
       setMapImage,
+      setLighting,
       addToken,
       removeToken,
       updateToken,
@@ -325,6 +454,15 @@ export function useRoomSocket() {
       addToBag,
       equipItem,
       unequipSlot,
+      dropItem,
+      lootBags,
+      lootStatus,
+      generateLoot,
+      dmGenerateLoot,
+      setLootVisibility,
+      distributeLoot,
+      discardLoot,
+      requestLootSnapshot,
     ]
   );
 }

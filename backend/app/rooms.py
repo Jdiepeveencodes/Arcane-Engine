@@ -41,9 +41,14 @@ class Room:
     grid: dict = field(default_factory=lambda: {"cols": 20, "rows": 20, "cell": 32})
     map_image_url: str = ""
     tokens: List[dict] = field(default_factory=list)
+    lighting: dict = field(default_factory=lambda: {"fog_enabled": False, "ambient_radius": 0, "darkness": False})
 
     # ✅ Inventory state (per-player)
     inventories: dict = field(default_factory=dict)
+
+    # ✅ Loot bags (for DM loot distribution)
+    # Structure: { "bag_id": { "name": "...", "items": [...], "created_at": ..., "created_by": "dm_id" } }
+    loot_bags: dict = field(default_factory=dict)
 
     # Internal flag used by db loader in main.py (safe default)
     _db_loaded: bool = False
@@ -100,6 +105,47 @@ class RoomManager:
             return False, "All player seats are taken."
 
         return True, "ok"
+
+    def add_client(self, room_id: str, conn: ClientConn) -> bool:
+        """Add a client connection to a room. Returns True if successful."""
+        room = self.get_room(room_id)
+        if not room:
+            return False
+        room.clients[conn.user_id] = conn
+        return True
+
+    def remove_client(self, room_id: str, user_id: str) -> None:
+        """Remove a client connection from a room."""
+        room = self.get_room(room_id)
+        if room and user_id in room.clients:
+            del room.clients[user_id]
+
+    def get_members(self, room_id: str) -> List[dict]:
+        """Get list of members in a room as dicts."""
+        room = self.get_room(room_id)
+        if not room:
+            return []
+        return [
+            {"user_id": c.user_id, "name": c.name, "role": c.role}
+            for c in room.clients.values()
+        ]
+
+    async def broadcast(self, room_id: str, message: dict, exclude_user_id: Optional[str] = None) -> None:
+        """Broadcast a message to all clients in a room."""
+        room = self.get_room(room_id)
+        if not room:
+            return
+        
+        # Make a copy of clients to avoid iteration issues if clients disconnect during broadcast
+        clients_copy = list(room.clients.items())
+        for user_id, conn in clients_copy:
+            if exclude_user_id and user_id == exclude_user_id:
+                continue
+            try:
+                await conn.ws.send_json(message)
+            except Exception:
+                # Silently ignore send failures (client disconnected, etc.)
+                pass
 
 
 manager = RoomManager()

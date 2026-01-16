@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as PIXI from "pixi.js";
 
 type Grid = { cols: number; rows: number; cell: number };
+type Lighting = { fog_enabled: boolean; ambient_radius: number; darkness: boolean };
 
 type Token = {
   id: string;
@@ -16,12 +17,14 @@ type Token = {
   // optional fields (safe if your backend sends them)
   initiative?: number | null;
   vision_radius?: number | null;
+  darkvision?: boolean | null;
   hp?: number | null;
   ac?: number | null;
 };
 
 type Props = {
   grid: Grid;
+  lighting?: Lighting;
   mapImageUrl?: string;
   map_image_url?: string; // defensive
   tokens: Token[];
@@ -29,29 +32,10 @@ type Props = {
   role: string;
   youUserId: string;
   onTokenMove: (tokenId: string, x: number, y: number) => void;
+  forcePlayerView?: boolean;
 };
 
 const clamp = (n: number, a: number, b: number) => Math.max(a, Math.min(b, n));
-
-function fitWorldIntoView(
-  world: PIXI.Container,
-  viewW: number,
-  viewH: number,
-  worldW: number,
-  worldH: number,
-  pad = 24
-) {
-  const iw = Math.max(1, viewW - pad * 2);
-  const ih = Math.max(1, viewH - pad * 2);
-
-  const sx = iw / Math.max(1, worldW);
-  const sy = ih / Math.max(1, worldH);
-  const s = Math.max(0.05, Math.min(4, Math.min(sx, sy)));
-
-  world.scale.set(s);
-  world.x = (viewW - worldW * s) / 2;
-  world.y = (viewH - worldH * s) / 2;
-}
 
 export default function MapPanelPixi({
   grid,
@@ -62,14 +46,24 @@ export default function MapPanelPixi({
   onTokenMove,
   mapImageUrl,
   map_image_url,
+  lighting,
+  forcePlayerView,
 }: Props) {
-  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const hostRef = useRef<HTMLDivElement | null>(null);
 
   const appRef = useRef<PIXI.Application | null>(null);
   const worldRef = useRef<PIXI.Container | null>(null);
   const bgRef = useRef<PIXI.Sprite | null>(null);
   const gridRef = useRef<PIXI.Graphics | null>(null);
-  const tokenLayerRef = useRef<PIXI.Container | null>(null);
+  const npcLayerRef = useRef<PIXI.Container | null>(null);
+  const playerLayerRef = useRef<PIXI.Container | null>(null);
+  const fogLayerRef = useRef<PIXI.Container | null>(null);
+  const fogSpriteRef = useRef<PIXI.Sprite | null>(null);
+  const fogCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const fogCtxRef = useRef<CanvasRenderingContext2D | null>(null);
+  const revealCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const revealCtxRef = useRef<CanvasRenderingContext2D | null>(null);
+  const fogKeyRef = useRef<string>("");
 
   const [imgStatus, setImgStatus] = useState<"idle" | "loading" | "ok" | "error">("idle");
 
@@ -82,6 +76,8 @@ export default function MapPanelPixi({
       cell: clamp(Math.floor(grid?.cell ?? 32), 12, 128),
     };
   }, [grid]);
+  const worldW = safeGrid.cols * safeGrid.cell;
+  const worldH = safeGrid.rows * safeGrid.cell;
 
   const ownerNameById = useMemo(() => {
     const m = new Map<string, string>();
@@ -99,23 +95,29 @@ export default function MapPanelPixi({
   // ---------- INIT PIXI ONCE ----------
   useEffect(() => {
     let cancelled = false;
+    let appLocal: PIXI.Application | null = null;
 
     (async () => {
-      const host = wrapRef.current;
+      const host = hostRef.current;
       if (!host) return;
 
       const app = new PIXI.Application();
-      appRef.current = app;
+      appLocal = app;
 
       // Pixi v8 init
       await app.init({
         backgroundAlpha: 0,
         antialias: true,
-        resizeTo: host,
+        width: worldW,
+        height: worldH,
       });
 
-      if (cancelled) return;
+      if (cancelled) {
+        app.destroy(true);
+        return;
+      }
 
+      appRef.current = app;
       host.appendChild(app.canvas);
 
       // world root
@@ -133,36 +135,48 @@ export default function MapPanelPixi({
       gridRef.current = gg;
       world.addChild(gg);
 
-      // token layer
-      const tl = new PIXI.Container();
-      tokenLayerRef.current = tl;
-      world.addChild(tl);
+      // token layers
+      const npcLayer = new PIXI.Container();
+      npcLayerRef.current = npcLayer;
+      world.addChild(npcLayer);
 
-      // initial fit (once)
-      const worldW = safeGrid.cols * safeGrid.cell;
-      const worldH = safeGrid.rows * safeGrid.cell;
-      fitWorldIntoView(world, app.screen.width, app.screen.height, worldW, worldH, 24);
+      const fogLayer = new PIXI.Container();
+      fogLayer.eventMode = "none";
+      fogLayerRef.current = fogLayer;
+      world.addChild(fogLayer);
 
-      // refit on resize (pixi resizeTo handles renderer size; we re-center world)
-      const onTick = () => {
-        if (!appRef.current || !worldRef.current) return;
-        const w = safeGrid.cols * safeGrid.cell;
-        const h = safeGrid.rows * safeGrid.cell;
-        fitWorldIntoView(worldRef.current, app.screen.width, app.screen.height, w, h, 24);
-      };
-      app.ticker.add(onTick);
+      const playerLayer = new PIXI.Container();
+      playerLayerRef.current = playerLayer;
+      world.addChild(playerLayer);
 
-      return () => {
-        app.ticker.remove(onTick);
-      };
+      const fogCanvas = document.createElement("canvas");
+      fogCanvas.width = Math.max(1, worldW);
+      fogCanvas.height = Math.max(1, worldH);
+      const fogCtx = fogCanvas.getContext("2d");
+
+      const revealCanvas = document.createElement("canvas");
+      revealCanvas.width = fogCanvas.width;
+      revealCanvas.height = fogCanvas.height;
+      const revealCtx = revealCanvas.getContext("2d");
+
+      fogCanvasRef.current = fogCanvas;
+      fogCtxRef.current = fogCtx;
+      revealCanvasRef.current = revealCanvas;
+      revealCtxRef.current = revealCtx;
+
+      const fogSprite = new PIXI.Sprite(PIXI.Texture.from(fogCanvas));
+      fogSprite.eventMode = "none";
+      fogSprite.alpha = 1;
+      fogSpriteRef.current = fogSprite;
+      fogLayer.addChild(fogSprite);
     })();
 
     return () => {
       cancelled = true;
       try {
-        const app = appRef.current;
+        const app = appRef.current || appLocal;
         if (app) {
-          const host = wrapRef.current;
+          const host = hostRef.current;
           if (host && app.canvas?.parentNode === host) host.removeChild(app.canvas);
           app.destroy(true);
         }
@@ -171,10 +185,24 @@ export default function MapPanelPixi({
       worldRef.current = null;
       bgRef.current = null;
       gridRef.current = null;
-      tokenLayerRef.current = null;
+      npcLayerRef.current = null;
+      playerLayerRef.current = null;
+      fogLayerRef.current = null;
+      fogSpriteRef.current = null;
+      fogCanvasRef.current = null;
+      fogCtxRef.current = null;
+      revealCanvasRef.current = null;
+      revealCtxRef.current = null;
+      fogKeyRef.current = "";
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const app = appRef.current;
+    if (!app || !app.renderer) return;
+    app.renderer.resize(Math.max(1, worldW), Math.max(1, worldH));
+  }, [worldW, worldH]);
 
   // ---------- LOAD MAP IMAGE ----------
   useEffect(() => {
@@ -207,14 +235,6 @@ export default function MapPanelPixi({
 
         setImgStatus("ok");
 
-        fitWorldIntoView(
-          world,
-          app.screen.width,
-          app.screen.height,
-          safeGrid.cols * safeGrid.cell,
-          safeGrid.rows * safeGrid.cell,
-          24
-        );
       } catch {
         if (cancelled) return;
         bg.texture = PIXI.Texture.EMPTY;
@@ -263,26 +283,31 @@ export default function MapPanelPixi({
 
   // ---------- TOKENS (render + drag) ----------
   useEffect(() => {
-    const layer = tokenLayerRef.current;
-    if (!layer) return;
+    const npcLayer = npcLayerRef.current;
+    const playerLayer = playerLayerRef.current;
+    if (!npcLayer || !playerLayer) return;
 
-    layer.removeChildren();
+    npcLayer.removeChildren();
+    playerLayer.removeChildren();
 
     const { cols, rows, cell } = safeGrid;
 
     // stack tokens on same square slightly offset so you can see them
-    const stacks = new Map<string, Token[]>();
-    for (const t of tokens || []) {
-      const key = `${t.x},${t.y}`;
-      const arr = stacks.get(key) || [];
-      arr.push(t);
-      stacks.set(key, arr);
-    }
+    const buildStacks = (list: Token[]) => {
+      const stacks = new Map<string, Token[]>();
+      for (const t of list) {
+        const key = `${t.x},${t.y}`;
+        const arr = stacks.get(key) || [];
+        arr.push(t);
+        stacks.set(key, arr);
+      }
+      return stacks;
+    };
 
     const fanOffset = (i: number) => ({ dx: 6 * i, dy: 4 * i });
     const snap = (px: number) => Math.round(px / cell);
 
-    const makeToken = (t: Token, stackIndex: number, stackSize: number) => {
+    const makeToken = (layer: PIXI.Container, t: Token, stackIndex: number, stackSize: number) => {
       const sizeSquares = clamp(Math.floor(t.size || 1), 1, 6);
       const pxSize = sizeSquares * cell;
 
@@ -377,24 +402,123 @@ export default function MapPanelPixi({
       return container;
     };
 
-    for (const arr of stacks.values()) {
-      arr.forEach((t, idx) => layer.addChild(makeToken(t, idx, arr.length)));
+    const npcTokens = (tokens || []).filter((t) => t.kind !== "player");
+    const playerTokens = (tokens || []).filter((t) => t.kind === "player");
+
+    const npcStacks = buildStacks(npcTokens);
+    for (const arr of npcStacks.values()) {
+      arr.forEach((t, idx) => npcLayer.addChild(makeToken(npcLayer, t, idx, arr.length)));
+    }
+
+    const playerStacks = buildStacks(playerTokens);
+    for (const arr of playerStacks.values()) {
+      arr.forEach((t, idx) => playerLayer.addChild(makeToken(playerLayer, t, idx, arr.length)));
     }
   }, [tokens, safeGrid, role, youUserId, onTokenMove]);
+
+  // ---------- FOG OF WAR ----------
+  useEffect(() => {
+    const fogLayer = fogLayerRef.current as PIXI.Container | null;
+    const fogSprite = fogSpriteRef.current as PIXI.Sprite | null;
+    const fogCanvas = fogCanvasRef.current;
+    const fogCtx = fogCtxRef.current;
+    const revealCanvas = revealCanvasRef.current;
+    const revealCtx = revealCtxRef.current;
+    if (!fogLayer || !fogSprite || !fogCanvas || !fogCtx || !revealCanvas || !revealCtx) return;
+
+    const fogEnabled = !!lighting?.fog_enabled;
+    const isDM = role === "dm" && !forcePlayerView;
+    const shouldFog = fogEnabled && !isDM;
+
+    fogLayer.visible = shouldFog;
+    if (!shouldFog) return;
+
+    const { cols, rows, cell } = safeGrid;
+    const w = cols * cell;
+    const h = rows * cell;
+
+    const fogKey = `${w}x${h}:${mapUrl}`;
+    if (fogCanvas.width !== w || fogCanvas.height !== h || fogKeyRef.current !== fogKey) {
+      fogCanvas.width = Math.max(1, w);
+      fogCanvas.height = Math.max(1, h);
+      revealCanvas.width = fogCanvas.width;
+      revealCanvas.height = fogCanvas.height;
+      fogKeyRef.current = fogKey;
+      fogSprite.width = w;
+      fogSprite.height = h;
+      if (revealCtx) revealCtx.clearRect(0, 0, w, h);
+    }
+
+    const fogAlpha = 0.95;
+
+    const ambient = Math.max(0, Math.floor(lighting?.ambient_radius ?? 0));
+
+    const holes: Array<{ x: number; y: number; r: number }> = [];
+    for (const t of tokens || []) {
+      const isOwner = (t.owner_user_id || "").trim() === youUserId;
+      const isSharedPlayer = !t.owner_user_id && t.kind === "player";
+      const isAnyPlayer = forcePlayerView && role === "dm" && t.kind === "player";
+      if (!isOwner && !isSharedPlayer && !isAnyPlayer) continue;
+
+      const baseVision = Math.max(1, Math.floor(t.vision_radius ?? 6));
+      const hasDarkvision = !!t.darkvision;
+      let radiusCells = baseVision;
+      if (ambient > 0) {
+        if (lighting?.darkness) {
+          radiusCells = hasDarkvision ? Math.max(baseVision, ambient) : Math.min(baseVision, ambient);
+        } else {
+          radiusCells = Math.max(baseVision, ambient);
+        }
+      } else if (lighting?.darkness && !hasDarkvision) {
+        radiusCells = Math.max(1, Math.floor(baseVision / 2));
+      }
+      radiusCells = Math.max(1, Math.floor(radiusCells * 0.4));
+
+      const sizeSquares = clamp(Math.floor(t.size || 1), 1, 6);
+      const pxSize = sizeSquares * cell;
+      const cx = clamp(t.x, 0, cols - 1) * cell + pxSize / 2;
+      const cy = clamp(t.y, 0, rows - 1) * cell + pxSize / 2;
+      const r = radiusCells * cell;
+
+      holes.push({ x: cx, y: cy, r });
+    }
+
+    revealCtx.globalCompositeOperation = "source-over";
+    revealCtx.fillStyle = "rgba(255,255,255,1)";
+    for (const hole of holes) {
+      revealCtx.beginPath();
+      revealCtx.arc(hole.x, hole.y, hole.r, 0, Math.PI * 2);
+      revealCtx.fill();
+    }
+
+    fogCtx.globalCompositeOperation = "source-over";
+    fogCtx.clearRect(0, 0, w, h);
+    fogCtx.fillStyle = `rgba(5,7,11,${fogAlpha})`;
+    fogCtx.fillRect(0, 0, w, h);
+    fogCtx.globalCompositeOperation = "destination-out";
+    fogCtx.drawImage(revealCanvas, 0, 0);
+    fogCtx.globalCompositeOperation = "source-over";
+
+    const tex: any = fogSprite.texture;
+    const source: any = tex?.source;
+    if (!tex || !source || source.resource !== fogCanvas) {
+      fogSprite.texture = PIXI.Texture.from(fogCanvas);
+    } else if (typeof source.update === "function") {
+      source.update();
+    }
+  }, [lighting, tokens, safeGrid, role, youUserId, mapUrl, forcePlayerView]);
 
   const showPlaceholder = !mapUrl;
   const showError = !!mapUrl && imgStatus === "error";
 
   return (
     <div
-      ref={wrapRef}
-      className="mapCanvasWrap"
+      ref={hostRef}
       style={{
-        width: "100%",
-        height: "100%",
+        width: worldW,
+        height: worldH,
         position: "relative",
         background: "#0b0f17",
-        overflow: "hidden",
       }}
     >
       {showPlaceholder ? (
