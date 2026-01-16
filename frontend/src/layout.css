@@ -53,7 +53,9 @@ html, body, #root{
   grid-row: 1 / span 2;
 
   min-height: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable both-edges;
 
   display: flex;
   flex-direction: column;
@@ -124,8 +126,9 @@ html, body, #root{
 }
 
 .mapCanvasWrap{
+  min-width: 0;
   min-height: 0;
-  overflow: hidden;
+  overflow: auto;
 }
 
 .mapDMWrap{

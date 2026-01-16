@@ -227,6 +227,69 @@ button:disabled, input:disabled, select:disabled {
   min-height: 0;
 }
 
+/* chatPanel layout: h2 at top, log in middle (flex), input at bottom */
+.chatPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+.chatPanel h2 {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.chatLog {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.06);
+  background: rgba(0,0,0,0.18);
+  padding: 10px;
+}
+
+.chatInputRow {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+  width: 100%;
+}
+
+.chatInputRow input {
+  flex: 1;
+  min-width: 0;
+}
+
+.chatInputRow button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Critical roll styling */
+.chatLine.critSuccess {
+  background: linear-gradient(90deg, rgba(34, 197, 94, 0.15) 0%, rgba(34, 197, 94, 0) 100%);
+  border-left: 3px solid rgba(34, 197, 94, 0.6);
+  padding-left: 10px;
+}
+
+.chatLine.critSuccess .pill {
+  border-color: rgba(34, 197, 94, 0.5);
+  background: rgba(34, 197, 94, 0.15);
+}
+
+.chatLine.critFail {
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.15) 0%, rgba(239, 68, 68, 0) 100%);
+  border-left: 3px solid rgba(239, 68, 68, 0.6);
+  padding-left: 10px;
+}
+
+.chatLine.critFail .pill {
+  border-color: rgba(239, 68, 68, 0.5);
+  background: rgba(239, 68, 68, 0.15);
+}
+
 /* The scrolling log should flex, not calc-height */
 .log {
   flex: 1;

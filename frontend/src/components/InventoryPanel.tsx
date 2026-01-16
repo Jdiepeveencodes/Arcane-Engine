@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import "./InventoryPanel.css";
 import type { EquipSlot, Item, PlayerInventory } from "../hooks/useRoomSocket";
+import slotLayoutData from "../assets/inventory-layout.json";
 
 type Props = {
   role: "dm" | "player";
@@ -8,7 +9,9 @@ type Props = {
   inventories: Record<string, PlayerInventory>;
   equipItem: (toSlot: EquipSlot, item: Partial<Item>, targetUserId?: string) => boolean;
   unequipSlot: (slot: EquipSlot, targetUserId?: string) => boolean;
+  dropItem?: (itemId: string, targetUserId?: string) => void; // optional dev tool
   addToBag?: (item: Partial<Item>, targetUserId?: string) => boolean; // optional dev tool
+  bodyImageUrl?: string;
 };
 
 type DragPayload =
@@ -17,7 +20,6 @@ type DragPayload =
 
 const SLOT_ORDER: Array<{ slot: EquipSlot; label: string }> = [
   { slot: "head", label: "Head" },
-  { slot: "gorget", label: "Gorget" },
   { slot: "necklace", label: "Necklace" },
   { slot: "shoulders", label: "Shoulders" },
   { slot: "chest", label: "Chest" },
@@ -28,40 +30,93 @@ const SLOT_ORDER: Array<{ slot: EquipSlot; label: string }> = [
   { slot: "boots", label: "Boots" },
   { slot: "ring1", label: "Ring 1" },
   { slot: "ring2", label: "Ring 2" },
-  { slot: "mainHand", label: "Main Hand" },
-  { slot: "offHand", label: "Off Hand" },
+  { slot: "mainhand", label: "Main Hand" },
+  { slot: "offhand", label: "Off Hand" },
 ];
 
 const SLOT_ACCEPTS: Record<EquipSlot, (item: Item) => boolean> = {
-  head: (i) => i.slot === "head",
-  gorget: (i) => i.slot === "gorget",
-  necklace: (i) => i.slot === "necklace",
-  shoulders: (i) => i.slot === "shoulders",
-  chest: (i) => i.slot === "chest",
-  bracers: (i) => i.slot === "bracers",
-  gloves: (i) => i.slot === "gloves",
-  belt: (i) => i.slot === "belt",
-  legs: (i) => i.slot === "legs",
-  boots: (i) => i.slot === "boots",
-  ring1: (i) => i.slot === "ring",
-  ring2: (i) => i.slot === "ring",
-  mainHand: (i) => i.slot === "mainHand",
-  offHand: (i) => i.slot === "offHand",
+  head: (i) => (i.slot as string).toLowerCase() === "head",
+  necklace: (i) => (i.slot as string).toLowerCase() === "necklace",
+  shoulders: (i) => (i.slot as string).toLowerCase() === "shoulders",
+  chest: (i) => (i.slot as string).toLowerCase() === "chest",
+  bracers: (i) => (i.slot as string).toLowerCase() === "bracers",
+  gloves: (i) => (i.slot as string).toLowerCase() === "gloves",
+  belt: (i) => (i.slot as string).toLowerCase() === "belt",
+  legs: (i) => (i.slot as string).toLowerCase() === "legs",
+  boots: (i) => (i.slot as string).toLowerCase() === "boots",
+  ring1: (i) => (i.slot as string).toLowerCase() === "ring" || (i.slot as string).toLowerCase() === "ring1",
+  ring2: (i) => (i.slot as string).toLowerCase() === "ring" || (i.slot as string).toLowerCase() === "ring2",
+  mainhand: (i) => (i.slot as string).toLowerCase() === "mainhand",
+  offhand: (i) => (i.slot as string).toLowerCase() === "offhand",
 };
 
+type SlotLayout = { top: number; left: number; width: number; height: number };
+const DEFAULT_LAYOUT = slotLayoutData as Record<EquipSlot, SlotLayout>;
+
 function inferDefaultEquipSlot(item: Item, equipment: Partial<Record<EquipSlot, Item>>): EquipSlot | null {
-  if (item.slot === "ring") {
+  const itemSlot = (item.slot as string).toLowerCase();
+  if (itemSlot === "ring" || itemSlot === "ring1" || itemSlot === "ring2") {
     if (!equipment.ring1) return "ring1";
     if (!equipment.ring2) return "ring2";
     return "ring1";
   }
-  const match = SLOT_ORDER.find((s) => s.slot === (item.slot as any));
-  return match ? (item.slot as EquipSlot) : null;
+  const match = SLOT_ORDER.find((s) => s.slot === itemSlot);
+  return match ? (itemSlot as EquipSlot) : null;
 }
 
 function shortId(id?: string) {
   if (!id) return "";
   return id.length > 8 ? `${id.slice(0, 4)}…${id.slice(-3)}` : id;
+}
+
+function tierLabel(tier?: number) {
+  const map: Record<number, string> = {
+    0: "Poorly Made",
+    1: "Common",
+    2: "Well-Crafted",
+    3: "Masterwork",
+    4: "Enchanted (+1)",
+    5: "Enchanted (+2)",
+    6: "Enchanted (+3)",
+  };
+  if (typeof tier !== "number") return "Unknown";
+  return map[tier] || "Tier " + tier;
+}
+
+function propertyTags(item: Item) {
+  const tags = (item.tags || []).map((t) => String(t).toLowerCase());
+  if (item.magicType) tags.push(String(item.magicType).toLowerCase());
+  const allowed = new Set([
+    "bludgeoning",
+    "piercing",
+    "slashing",
+    "acid",
+    "cold",
+    "fire",
+    "lightning",
+    "poison",
+    "thunder",
+    "radiant",
+    "necrotic",
+    "force",
+    "psychic",
+    "two-handed",
+  ]);
+  return tags.filter((t) => allowed.has(t));
+}
+
+function formatItemTooltip(item: Item) {
+  const parts = [item.name || "Item"];
+  const slot = item.slot ? String(item.slot) : "bag";
+  parts.push("Slot: " + slot);
+  if (typeof item.tier === "number") {
+    parts.push("Tier: " + tierLabel(item.tier));
+  }
+  const props = propertyTags(item);
+  if (props.length) {
+    parts.push("Props: " + props.join(", "));
+  }
+  return parts;
 }
 
 export default function InventoryPanel({
@@ -70,26 +125,28 @@ export default function InventoryPanel({
   inventories,
   equipItem,
   unequipSlot,
-  addToBag,
+  dropItem,
+  bodyImageUrl,
 }: Props) {
   if (role !== "player") return null;
 
   const inv = inventories?.[youUserId];
   const equipment = inv?.equipment || {};
   const bag = inv?.bag || [];
+  const bodyUrl = bodyImageUrl || "/static/inventory-body.png";
+
+  const figureRef = useRef<HTMLDivElement | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [layout, setLayout] = useState<Record<EquipSlot, SlotLayout>>(() => ({ ...DEFAULT_LAYOUT }));
+  const dragState = useRef<{
+    slot: EquipSlot;
+    mode: "move" | "resize";
+    startX: number;
+    startY: number;
+    startLayout: SlotLayout;
+  } | null>(null);
 
   const [dragOverSlot, setDragOverSlot] = useState<EquipSlot | "bag" | null>(null);
-
-  const testItems = useMemo(
-    () => [
-      { id: "t_sword_1", name: "Rusty Sword", slot: "mainHand", is_two_handed: false },
-      { id: "t_gs_1", name: "Old Greatsword (2H)", slot: "mainHand", is_two_handed: true },
-      { id: "t_shield_1", name: "Wooden Shield", slot: "offHand", is_two_handed: false },
-      { id: "t_ring_1", name: "Plain Ring", slot: "ring", is_two_handed: false },
-      { id: "t_boots_1", name: "Worn Boots", slot: "boots", is_two_handed: false },
-    ],
-    []
-  );
 
   function onDragStartFromBag(e: React.DragEvent, item: Item) {
     const payload: DragPayload = { from: "bag", item };
@@ -116,6 +173,7 @@ export default function InventoryPanel({
   function handleDropOnSlot(e: React.DragEvent, toSlot: EquipSlot) {
     e.preventDefault();
     setDragOverSlot(null);
+    if (editMode) return;
 
     const payload = parseDragPayload(e);
     if (!payload) return;
@@ -137,6 +195,7 @@ export default function InventoryPanel({
   function handleDropOnBag(e: React.DragEvent) {
     e.preventDefault();
     setDragOverSlot(null);
+    if (editMode) return;
 
     const payload = parseDragPayload(e);
     if (!payload) return;
@@ -147,11 +206,84 @@ export default function InventoryPanel({
     }
   }
 
-  const BAG_COLS = 10;
-  const BAG_ROWS = 4;
+  function handleDropOnDropSlot(e: React.DragEvent) {
+    e.preventDefault();
+    setDragOverSlot(null);
+    if (editMode) return;
+
+    const payload = parseDragPayload(e);
+    if (!payload) return;
+
+    if (dropItem) {
+      dropItem(payload.item.id);
+    }
+  }
+
+  function clamp(n: number, lo: number, hi: number) {
+    return Math.max(lo, Math.min(hi, n));
+  }
+
+  function beginLayoutDrag(e: React.PointerEvent, slot: EquipSlot, mode: "move" | "resize") {
+    if (!editMode) return;
+    const rect = figureRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const startLayout = layout[slot] || DEFAULT_LAYOUT[slot];
+    dragState.current = {
+      slot,
+      mode,
+      startX: e.clientX,
+      startY: e.clientY,
+      startLayout,
+    };
+
+    const onMove = (ev: PointerEvent) => {
+      const state = dragState.current;
+      if (!state) return;
+      const dxPct = ((ev.clientX - state.startX) / rect.width) * 100;
+      const dyPct = ((ev.clientY - state.startY) / rect.height) * 100;
+      const minSize = 6;
+
+      let next = { ...state.startLayout };
+      if (state.mode === "move") {
+        next.left = clamp(next.left + dxPct, 0, 100 - next.width);
+        next.top = clamp(next.top + dyPct, 0, 100 - next.height);
+      } else {
+        next.width = clamp(next.width + dxPct, minSize, 100 - next.left);
+        next.height = clamp(next.height + dyPct, minSize, 100 - next.top);
+      }
+
+      setLayout((prev) => ({ ...prev, [state.slot]: next }));
+    };
+
+    const onUp = () => {
+      dragState.current = null;
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }
+
+  async function copyLayoutJson(json: string) {
+    try {
+      await navigator.clipboard.writeText(json);
+    } catch {}
+  }
+
+  function resetLayout() {
+    setLayout({ ...DEFAULT_LAYOUT });
+  }
+
+  const BAG_COLS = 6;
+  const BAG_ROWS = 3;
   const BAG_SLOTS = BAG_COLS * BAG_ROWS;
 
   const bagSlots: Array<Item | null> = Array.from({ length: BAG_SLOTS }, (_, i) => bag[i] || null);
+  const layoutJson = useMemo(() => JSON.stringify(layout, null, 2), [layout]);
 
   return (
     <section className="invRoot">
@@ -161,32 +293,38 @@ export default function InventoryPanel({
           <div className="invSub muted">Drag & drop • Double-click to equip</div>
         </div>
 
-        <div className="invTestRow">
-          {addToBag ? (
-            testItems.map((t) => (
-              <button key={t.id} onClick={() => addToBag(t)} title="Dev: add test item">
-                + {t.name}
-              </button>
-            ))
-          ) : (
-            <span className="muted" />
-          )}
-        </div>
       </div>
 
       <div className="invBody">
         <div className="equipPanel">
-          <div className="panelTitle">Equipment</div>
+          <div className="equipControls">
+            <button onClick={() => setEditMode((v) => !v)}>{editMode ? "Exit Layout" : "Edit Layout"}</button>
+            {editMode ? (
+              <>
+                <button onClick={() => copyLayoutJson(layoutJson)}>Copy Layout JSON</button>
+                <button onClick={resetLayout}>Reset Layout</button>
+              </>
+            ) : null}
+          </div>
 
-          <div className="equipGrid">
+          <div ref={figureRef} className="equipFigure" style={{ backgroundImage: `url(${bodyUrl})` }}>
             {SLOT_ORDER.map(({ slot, label }) => {
               const it = (equipment as any)?.[slot] as Item | undefined;
               const isOver = dragOverSlot === slot;
+              const layoutSlot = layout[slot] || DEFAULT_LAYOUT[slot];
 
               return (
                 <div
                   key={slot}
-                  className={`equipSlot ${isOver ? "over" : ""}`}
+                  className={`equipSlot equipSlotPos ${isOver ? "over" : ""} ${editMode ? "editing" : ""}`}
+                  data-slot={slot}
+                  style={{
+                    top: `${layoutSlot?.top ?? 0}%`,
+                    left: `${layoutSlot?.left ?? 0}%`,
+                    width: `${layoutSlot?.width ?? 10}%`,
+                    height: `${layoutSlot?.height ?? 10}%`,
+                  }}
+                  onPointerDown={(e) => beginLayoutDrag(e, slot, e.shiftKey ? "resize" : "move")}
                   onDragOver={(e) => {
                     e.preventDefault();
                     setDragOverSlot(slot);
@@ -194,15 +332,17 @@ export default function InventoryPanel({
                   onDragLeave={() => setDragOverSlot(null)}
                   onDrop={(e) => handleDropOnSlot(e, slot)}
                 >
-                  <div className="slotLabel">{label}</div>
-
                   {it ? (
                     <div
                       className="slotItem"
-                      draggable
+                      draggable={!editMode}
                       onDragStart={(e) => onDragStartFromEquip(e, slot, it)}
-                      title={`${it.name} (${it.slot})`}
                     >
+                      <div className="itemTooltip">
+                        {formatItemTooltip(it).map((line, idx) => (
+                          <div key={idx}>{line}</div>
+                        ))}
+                      </div>
                       <div className="itemName">{it.name}</div>
                       <div className="itemMeta muted">
                         {it.is_two_handed ? "2H • " : ""}
@@ -213,12 +353,24 @@ export default function InventoryPanel({
                       </div>
                     </div>
                   ) : (
-                    <div className="slotEmpty muted">Drop here</div>
+                    <div className="slotEmpty muted" />
                   )}
+
+                  {editMode ? (
+                    <div
+                      className="slotResizeHandle"
+                      title="Resize"
+                      onPointerDown={(e) => beginLayoutDrag(e, slot, "resize")}
+                    />
+                  ) : null}
                 </div>
               );
             })}
           </div>
+
+          {editMode ? (
+            <textarea className="layoutJson" value={layoutJson} readOnly />
+          ) : null}
         </div>
 
         <div
@@ -241,12 +393,16 @@ export default function InventoryPanel({
                       className="bagItem"
                       draggable
                       onDragStart={(e) => onDragStartFromBag(e, it)}
-                      title={`${it.name} (${it.slot})`}
                       onDoubleClick={() => {
                         const target = inferDefaultEquipSlot(it, equipment);
                         if (target) equipItem(target, it);
                       }}
                     >
+                      <div className="itemTooltip">
+                        {formatItemTooltip(it).map((line, idx) => (
+                          <div key={idx}>{line}</div>
+                        ))}
+                      </div>
                       <div className="bagItemName">{it.name}</div>
                       <div className="bagItemMeta muted">{it.slot}</div>
                     </div>
@@ -259,6 +415,18 @@ export default function InventoryPanel({
           <div className="muted bagHint">
             Tip: Double-click a bag item to equip to its default slot (rings prefer Ring 1 then Ring 2).
           </div>
+        </div>
+
+        <div
+          className={`dropSlot ${dragOverSlot === "drop" ? "over" : ""}`}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOverSlot("drop");
+          }}
+          onDragLeave={() => setDragOverSlot(null)}
+          onDrop={handleDropOnDropSlot}
+        >
+          <div className="dropSlotLabel">🗑️ Drop Item</div>
         </div>
       </div>
 

@@ -10,6 +10,7 @@ import MapPanelPixi from "./components/MapPanelPixi";
 import MapDMControls from "./components/MapDMControls";
 import InventoryPanel from "./components/InventoryPanel";
 import DMLootPanel from "./components/DMLootPanel";
+import LootBagPanel from "./components/LootBagPanel";
 
 import { useRoomSocket } from "./hooks/useRoomSocket";
 
@@ -27,6 +28,7 @@ export default function App() {
   const [diceExprText, setDiceExprText] = useState("");
   const [diceMode, setDiceMode] = useState("");
   const [diceMod, setDiceMod] = useState("0");
+  const [dmPlayerView, setDmPlayerView] = useState(false);
 
   const pendingBatchRef = useRef<{ active: boolean; expectedResults: number }>({
     active: false,
@@ -67,7 +69,7 @@ export default function App() {
   }
 
   function sendChannel(channel: "table" | "narration", text: string) {
-    room.sendChat(text, channel);
+    room.sendChat(channel, text);
   }
 
   function clearDice() {
@@ -117,11 +119,29 @@ export default function App() {
           <ScenePanel scene={room.scene ?? { title: "—", text: "—" }} members={room.members ?? []} />
 
           {isDM && (
-            <DMLootPanel
-              connected={room.connected}
-              isDM={isDM}
+            <>
+              <DMLootPanel
+                connected={room.connected}
+                isDM={isDM}
+                members={room.members}
+                lootStatus={room.lootStatus}
+                onGenerateLoot={room.dmGenerateLoot}
+              />
+              <LootBagPanel
+                lootBags={room.lootBags}
+                members={room.members}
+                isDM
+                onDistribute={room.distributeLoot}
+                onDiscard={room.discardLoot}
+                onToggleVisibility={room.setLootVisibility}
+              />
+            </>
+          )}
+          {!isDM && (
+            <LootBagPanel
+              lootBags={room.lootBags}
               members={room.members}
-              onGenerateLoot={room.dmGenerateLoot}
+              isDM={false}
             />
           )}
 
@@ -175,12 +195,14 @@ export default function App() {
             <div className="mapCanvasWrap">
               <MapPanelPixi
                 grid={room.grid}
+                lighting={room.lighting}
                 mapImageUrl={room.mapImageUrl}
                 tokens={room.tokens}
                 members={room.members}
                 role={room.role}
                 youUserId={room.you?.user_id || ""}
                 onTokenMove={room.moveToken}
+                forcePlayerView={isDM && dmPlayerView}
               />
             </div>
 
@@ -194,8 +216,12 @@ export default function App() {
                   grid={room.grid}
                   mapImageUrl={room.mapImageUrl}
                   tokens={room.tokens}
+                  lighting={room.lighting}
+                  playerView={dmPlayerView}
+                  setPlayerView={setDmPlayerView}
                   updateGrid={room.updateGrid}
                   setMapImage={room.setMapImage}
+                  setLighting={room.setLighting}
                   addToken={room.addToken}
                   removeToken={room.removeToken}
                   updateToken={room.updateToken}
@@ -209,6 +235,7 @@ export default function App() {
                   inventories={room.inventories}
                   equipItem={room.equipItem}
                   unequipSlot={room.unequipSlot}
+                  dropItem={room.dropItem}
                   addToBag={room.addToBag}
                 />
               </div>

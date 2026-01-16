@@ -5,6 +5,7 @@ type Props = {
   connected: boolean;
   isDM: boolean;
   members: Member[];
+  lootStatus?: string;
   onGenerateLoot: (targetUserId: string, config: LootConfig) => boolean;
 };
 
@@ -13,7 +14,6 @@ const SLOT_OPTIONS = [
   { value: "mainHand", label: "Main Hand" },
   { value: "offHand", label: "Off Hand" },
   { value: "head", label: "Head" },
-  { value: "gorget", label: "Gorget" },
   { value: "necklace", label: "Necklace" },
   { value: "shoulders", label: "Shoulders" },
   { value: "chest", label: "Chest" },
@@ -25,7 +25,7 @@ const SLOT_OPTIONS = [
   { value: "ring", label: "Ring" },
 ];
 
-export default function DMLootPanel({ connected, isDM, members, onGenerateLoot }: Props) {
+export default function DMLootPanel({ connected, isDM, members, lootStatus, onGenerateLoot }: Props) {
   if (!isDM) return null;
 
   const targets = useMemo(() => members.filter((m) => m.role === "player"), [members]);
@@ -38,6 +38,7 @@ export default function DMLootPanel({ connected, isDM, members, onGenerateLoot }
   const [tierMin, setTierMin] = useState<number>(0);
   const [tierMax, setTierMax] = useState<number>(6);
   const [tagsText, setTagsText] = useState<string>("");
+  const [addElemental, setAddElemental] = useState<boolean>(false);
 
   // Top-row checks
   const [allowMagic, setAllowMagic] = useState<boolean>(true);
@@ -47,7 +48,17 @@ export default function DMLootPanel({ connected, isDM, members, onGenerateLoot }
 
   const [slotFilter, setSlotFilter] = useState<string>("");
 
-  const canGenerate = connected && !!targetUserId;
+  const canGenerate = connected;
+
+  function containerLabel(src: LootSource) {
+    return {
+      mob: "Corpse",
+      boss: "Boss Corpse",
+      shop: "Inventory",
+      chest: "Chest",
+      custom: "Items",
+    }[src] || "Items";
+  }
 
   function buildConfig(): LootConfig {
     const categories: Array<"weapons" | "armor" | "jewelry"> = [];
@@ -60,8 +71,8 @@ export default function DMLootPanel({ connected, isDM, members, onGenerateLoot }
       .map((t) => t.trim())
       .filter(Boolean);
 
-    const min = Math.max(0, Math.min(tierMin, 99));
-    const max = Math.max(0, Math.min(tierMax, 99));
+    const min = Math.max(0, Math.min(tierMin, 6));
+    const max = Math.max(0, Math.min(tierMax, 6));
     const tierMinFixed = Math.min(min, max);
     const tierMaxFixed = Math.max(min, max);
 
@@ -71,6 +82,8 @@ export default function DMLootPanel({ connected, isDM, members, onGenerateLoot }
       tierMin: tierMinFixed,
       tierMax: tierMaxFixed,
       allowMagic,
+      addElemental,
+      bagName: containerLabel(source),
       categories: categories.length ? categories : ["weapons", "armor", "jewelry"],
       slots: slotFilter ? [slotFilter] : [],
       tags,
@@ -79,7 +92,7 @@ export default function DMLootPanel({ connected, isDM, members, onGenerateLoot }
 
   function handleGenerate() {
     if (!canGenerate) return;
-    onGenerateLoot(targetUserId, buildConfig());
+    onGenerateLoot(targetUserId.trim(), buildConfig());
   }
 
   return (
@@ -95,9 +108,9 @@ export default function DMLootPanel({ connected, isDM, members, onGenerateLoot }
       {/* Compact controls */}
       <div className="lootGrid">
         <label className="lootField">
-          <span className="lootLabel">Target</span>
+          <span className="lootLabel">Target (optional)</span>
           <select value={targetUserId} onChange={(e) => setTargetUserId(e.target.value)}>
-            <option value="">Select…</option>
+            <option value="">Community items</option>
             {targets.map((m) => (
               <option key={m.user_id} value={m.user_id}>
                 {m.name}
@@ -170,10 +183,15 @@ export default function DMLootPanel({ connected, isDM, members, onGenerateLoot }
         <summary>Advanced</summary>
 
         <div className="lootAdvancedGrid">
+          <label className="lootCheck" style={{ gridColumn: "1 / -1" }}>
+            <input type="checkbox" checked={addElemental} onChange={(e) => setAddElemental(e.target.checked)} />
+            <span>Add elemental property</span>
+          </label>
+
           <label className="lootField">
             <span className="lootLabel">Tier min</span>
             <select value={tierMin} onChange={(e) => setTierMin(Number(e.target.value))}>
-              {Array.from({ length: 11 }, (_, i) => i).map((n) => (
+              {Array.from({ length: 7 }, (_, i) => i).map((n) => (
                 <option key={n} value={n}>
                   {n}
                 </option>
@@ -184,7 +202,7 @@ export default function DMLootPanel({ connected, isDM, members, onGenerateLoot }
           <label className="lootField">
             <span className="lootLabel">Tier max</span>
             <select value={tierMax} onChange={(e) => setTierMax(Number(e.target.value))}>
-              {Array.from({ length: 11 }, (_, i) => i).map((n) => (
+              {Array.from({ length: 7 }, (_, i) => i).map((n) => (
                 <option key={n} value={n}>
                   {n}
                 </option>
@@ -204,7 +222,8 @@ export default function DMLootPanel({ connected, isDM, members, onGenerateLoot }
       </details>
 
       {!connected ? <div className="lootHint">Connect to a room to generate loot.</div> : null}
-      {connected && !targetUserId ? <div className="lootHint">Select a target player.</div> : null}
+      {connected && !targetUserId ? <div className="lootHint">No target selected. This will create a community items container.</div> : null}
+      {lootStatus ? <div className="lootHint">{lootStatus}</div> : null}
     </section>
   );
 }

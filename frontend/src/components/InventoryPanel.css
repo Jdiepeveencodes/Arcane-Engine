@@ -28,16 +28,10 @@
   opacity: 0.8;
 }
 
-.invTestRow{
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-}
 
 .invBody{
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
   min-height: 0;
 }
@@ -53,31 +47,66 @@
   min-height: 0;
 }
 
-.equipGrid{
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
+.equipFigure{
+  position: relative;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  min-height: 520px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background-color: rgba(7,10,14,0.65);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  overflow: hidden;
+}
+
+.equipControls{
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.equipControls button{
+  font-size: 12px;
+  padding: 4px 8px;
 }
 
 .equipSlot{
+  position: relative;
   border-radius: 12px;
   border: 1px solid rgba(255,255,255,0.10);
-  background: rgba(0,0,0,0.15);
-  padding: 10px;
-  min-height: 74px;
-  display: grid;
-  gap: 8px;
+  background: rgba(6,10,14,0.72);
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
 }
 
 .equipSlot.over{
   border-color: rgba(255,255,255,0.22);
-  background: rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.08);
+}
+
+.equipSlotPos{
+  position: absolute;
+}
+
+.equipSlot.editing{
+  outline: 1px dashed rgba(255,255,255,0.35);
+  cursor: move;
 }
 
 .slotLabel{
   font-size: 11px;
   opacity: 0.8;
   letter-spacing: 0.2px;
+  position: absolute;
+  top: 4px;
+  left: 6px;
 }
 
 .slotEmpty{
@@ -87,9 +116,27 @@
 
 .slotItem{
   border-radius: 10px;
-  padding: 8px;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.10);
+  padding: 6px;
+  background: rgba(12,16,22,0.85);
+  border: 1px solid rgba(255,255,255,0.12);
+  width: 100%;
+  height: 100%;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 4px;
+  position: relative;
+}
+
+.slotItem .itemName,
+.slotItem .itemMeta{
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.slotItem:hover .itemName,
+.slotItem:hover .itemMeta{
+  opacity: 1;
 }
 
 .itemName{
@@ -103,9 +150,37 @@
 }
 
 .slotActions{
-  margin-top: 8px;
+  margin-top: 4px;
   display: flex;
   justify-content: flex-end;
+}
+
+.slotActions button{
+  font-size: 10px;
+  padding: 2px 6px;
+}
+
+.slotResizeHandle{
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.2) 60%);
+  cursor: se-resize;
+}
+
+.layoutJson{
+  width: 100%;
+  min-height: 140px;
+  margin-top: 8px;
+  background: rgba(5,7,11,0.85);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  padding: 8px;
+  font-size: 11px;
+  color: rgba(255,255,255,0.85);
 }
 
 .bagPanel{
@@ -123,27 +198,69 @@
 
 .bagGrid{
   display: grid;
-  grid-template-columns: repeat(10, 1fr);
-  gap: 6px;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
 }
 
 .bagCell{
   aspect-ratio: 1 / 1;
-  border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.08);
-  background: rgba(0,0,0,0.12);
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(0,0,0,0.25);
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .bagItem{
   width: 100%;
   height: 100%;
-  padding: 6px;
-  display: grid;
-  align-content: start;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   gap: 4px;
   cursor: grab;
   user-select: none;
+  text-align: center;
+  position: relative;
+}
+
+.bagItem .bagItemName,
+.bagItem .bagItemMeta{
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.bagItem:hover .bagItemName,
+.bagItem:hover .bagItemMeta{
+  opacity: 1;
+}
+
+.itemTooltip{
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%);
+  background: rgba(8, 12, 18, 0.96);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.92);
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 11px;
+  line-height: 1.3;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  z-index: 5;
+}
+
+.slotItem:hover .itemTooltip,
+.bagItem:hover .itemTooltip{
+  opacity: 1;
 }
 
 .bagItemName{
@@ -161,6 +278,31 @@
   margin-top: 10px;
   font-size: 11px;
   opacity: 0.7;
+}
+
+.dropSlot{
+  border-radius: 12px;
+  border: 2px dashed rgba(255,255,255,0.15);
+  background: rgba(255, 80, 80, 0.05);
+  padding: 16px;
+  text-align: center;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  cursor: grab;
+}
+
+.dropSlot.over{
+  border-color: rgba(255, 100, 100, 0.5);
+  background: rgba(255, 100, 100, 0.15);
+}
+
+.dropSlotLabel{
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0.8;
 }
 
 .invFooter{

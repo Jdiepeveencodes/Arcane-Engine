@@ -1,81 +1,37 @@
 from __future__ import annotations
 
 import os
-import json
-from typing import List, Dict, Any
+from typing import Optional
 
-
-def _get_client():
+# -----------------------------------------------------------------------------
+# Back-compat entry point expected by main.py
+# -----------------------------------------------------------------------------
+def maybe_ai_response(room_id: str, text: str) -> Optional[str]:
     """
-    Lazy-load OpenAI client so the app can start
-    even if OPENAI_API_KEY is missing.
+    MVP-safe AI hook.
+
+    Returns:
+      - None: no AI response (default)
+      - str: a narration string to broadcast
+
+    This is intentionally conservative so it never blocks room/chat stability.
+    Wire real AI later by replacing the body with an API call.
     """
-    from openai import OpenAI
-    return OpenAI()
 
+    # If you want a minimal "on/off" switch later:
+    # ARCANE_AI_MODE=off|auto
+    mode = (os.getenv("ARCANE_AI_MODE") or "off").strip().lower()
+    if mode not in ("auto", "assist"):
+        return None
 
-def narrator_prompt(scene: dict, recent_messages: List[dict]) -> str:
-    chat_lines = []
-    for m in recent_messages[-12:]:
-        name = m.get("name", m.get("role", "player"))
-        text = m.get("text", "")
-        chat_lines.append(f"{name}: {text}")
-    chat_block = "\n".join(chat_lines)
+    # Keep it harmless for now (no network calls).
+    # You can replace this with OpenAI later.
+    t = (text or "").strip()
+    if not t:
+        return None
 
-    return f"""
-You are the NARRATOR for a D&D session. The human DM is authoritative.
+    # Example placeholder: only respond if user explicitly asks
+    if "arcane" in t.lower() or t.lower().startswith("ai:"):
+        return "Understood. (AI placeholder response — wire API later.)"
 
-CURRENT SCENE:
-Title: {scene.get("title","")}
-Description: {scene.get("text","")}
-
-RECENT TABLE CHAT:
-{chat_block}
-
-Return JSON ONLY with keys:
-- narration
-- choices
-- dm_notes
-""".strip()
-
-
-def scene_draft_prompt(style_hint: str, current_scene: dict) -> str:
-    return f"""
-You are assisting a Dungeon Master.
-
-STYLE / THEME:
-{style_hint}
-
-CURRENT SCENE:
-Title: {current_scene.get("title","")}
-Description: {current_scene.get("text","")}
-
-Return JSON ONLY with keys:
-- title
-- text
-- dm_notes
-""".strip()
-
-
-def call_narrator(scene: dict, recent_messages: List[dict]) -> Dict[str, Any]:
-    client = _get_client()
-    model = os.getenv("OPENAI_MODEL", "gpt-5")
-
-    resp = client.responses.create(
-        model=model,
-        input=narrator_prompt(scene, recent_messages),
-        response_format={"type": "json_object"},
-    )
-    return json.loads(resp.output_text)
-
-
-def call_scene_draft(style_hint: str, current_scene: dict) -> Dict[str, Any]:
-    client = _get_client()
-    model = os.getenv("OPENAI_MODEL", "gpt-5")
-
-    resp = client.responses.create(
-        model=model,
-        input=scene_draft_prompt(style_hint, current_scene),
-        response_format={"type": "json_object"},
-    )
-    return json.loads(resp.output_text)
+    return None

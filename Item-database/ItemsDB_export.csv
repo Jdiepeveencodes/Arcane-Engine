@@ -1,0 +1,71 @@
+source,category,slot,base_id,name,tier,weaponClass,rangeType,hands,material,damageType,magicType,tags,baseGold
+baseItem,weapons,mainhand,club,Club,,simple,melee,1,wood,bludgeoning,,,0.1
+baseItem,weapons,mainhand,dagger,Dagger,,simple,melee,1,metal,piercing,,,2
+baseItem,weapons,mainhand,greatclub,Greatclub,,simple,melee,2,wood,bludgeoning,,,0.2
+baseItem,weapons,mainhand,handaxe,Handaxe,,simple,melee,1,metal,slashing,,,5
+baseItem,weapons,mainhand,javelin,Javelin,,simple,melee,1,wood,piercing,,,0.5
+baseItem,weapons,mainhand,lightHammer,Light Hammer,,simple,melee,1,metal,bludgeoning,,,2
+baseItem,weapons,mainhand,mace,Mace,,simple,melee,1,metal,bludgeoning,,,5
+baseItem,weapons,mainhand,quarterstaff,Quarterstaff,,simple,melee,2,wood,bludgeoning,,,0.2
+baseItem,weapons,mainhand,sickle,Sickle,,simple,melee,1,metal,slashing,,,1
+baseItem,weapons,mainhand,spear,Spear,,simple,melee,1,wood,piercing,,,1
+baseItem,weapons,mainhand,lightCrossbow,Light Crossbow,,simple,ranged,2,wood,piercing,,,25
+baseItem,weapons,mainhand,dart,Dart,,simple,ranged,1,metal,piercing,,,0.05
+baseItem,weapons,mainhand,shortbow,Shortbow,,simple,ranged,2,wood,piercing,,,25
+baseItem,weapons,mainhand,sling,Sling,,simple,ranged,1,cloth,bludgeoning,,,0.1
+baseItem,weapons,mainhand,battleaxe,Battleaxe,,martial,melee,1,metal,slashing,,,10
+baseItem,weapons,mainhand,flail,Flail,,martial,melee,1,metal,bludgeoning,,,10
+baseItem,weapons,mainhand,glaive,Glaive,,martial,melee,2,metal,slashing,,,20
+baseItem,weapons,mainhand,greataxe,Greataxe,,martial,melee,2,metal,slashing,,,30
+baseItem,weapons,mainhand,greatsword,Greatsword,,martial,melee,2,metal,slashing,,,50
+baseItem,weapons,mainhand,halberd,Halberd,,martial,melee,2,metal,slashing,,,20
+baseItem,weapons,mainhand,lance,Lance,,martial,melee,1,wood,piercing,,,10
+baseItem,weapons,mainhand,longsword,Longsword,,martial,melee,1,metal,slashing,,,15
+baseItem,weapons,mainhand,maul,Maul,,martial,melee,2,wood,bludgeoning,,,10
+baseItem,weapons,mainhand,morningstar,Morningstar,,martial,melee,1,metal,piercing,,,15
+baseItem,weapons,mainhand,pike,Pike,,martial,melee,2,wood,piercing,,,5
+baseItem,weapons,mainhand,rapier,Rapier,,martial,melee,1,metal,piercing,,,25
+baseItem,weapons,mainhand,scimitar,Scimitar,,martial,melee,1,metal,slashing,,,25
+baseItem,weapons,mainhand,shortsword,Shortsword,,martial,melee,1,metal,piercing,,,10
+baseItem,weapons,mainhand,trident,Trident,,martial,melee,1,metal,piercing,,,5
+baseItem,weapons,mainhand,warPick,War Pick,,martial,melee,1,metal,piercing,,,5
+baseItem,weapons,mainhand,warhammer,Warhammer,,martial,melee,1,metal,bludgeoning,,,15
+baseItem,weapons,mainhand,whip,Whip,,martial,melee,1,leather,slashing,,,2
+baseItem,weapons,mainhand,blowgun,Blowgun,,martial,ranged,1,wood,piercing,,,10
+baseItem,weapons,mainhand,handCrossbow,Hand Crossbow,,martial,ranged,1,wood,piercing,,,75
+baseItem,weapons,mainhand,heavyCrossbow,Heavy Crossbow,,martial,ranged,2,wood,piercing,,,50
+baseItem,weapons,mainhand,longbow,Longbow,,martial,ranged,2,wood,piercing,,,50
+baseItem,weapons,mainhand,net,Net,,martial,ranged,2,cloth,bludgeoning,,,1
+baseItem,armor,footwear,sandals,Sandals,,,,,cloth,,,,0.2
+baseItem,armor,footwear,leatherBoots,Leather Boots,,,,,leather,,,,5
+baseItem,armor,footwear,reinforcedBoots,Reinforced Boots,,,,,leather,,,,8
+baseItem,armor,footwear,heavyGreaves,Heavy Greaves,,,,,plate,,,,15
+baseItem,armor,leggings,clothTrousers,Cloth Trousers,,,,,cloth,,,,0.5
+baseItem,armor,leggings,leatherLeggings,Leather Leggings,,,,,leather,,,,10
+baseItem,armor,leggings,chainLeggings,Chain Leggings,,,,,chain,,,,25
+baseItem,armor,leggings,plateLeggings,Plate Leggings,,,,,plate,,,,40
+baseItem,armor,belt,ropeBelt,Rope Belt,,,,,cloth,,,,0.1
+baseItem,armor,belt,leatherBelt,Leather Belt,,,,,leather,,,,1
+baseItem,armor,belt,reinforcedBelt,Reinforced Belt,,,,,leather,,,,3
+baseItem,armor,belt,platedWarBelt,Plated War Belt,,,,,plate,,,,10
+baseItem,armor,gloves,clothGloves,Cloth Gloves,,,,,cloth,,,,0.2
+baseItem,armor,gloves,leatherGloves,Leather Gloves,,,,,leather,,,,2
+baseItem,armor,gloves,chainGloves,Chain Gloves,,,,,chain,,,,10
+baseItem,armor,gloves,gauntlets,Gauntlets,,,,,plate,,,,15
+baseItem,armor,bracers,clothBracers,Cloth Bracers,,,,,cloth,,,,0.3
+baseItem,armor,bracers,leatherBracers,Leather Bracers,,,,,leather,,,,3
+baseItem,armor,bracers,chainBracers,Chain Bracers,,,,,chain,,,,12
+baseItem,armor,bracers,plateBracers,Plate Bracers,,,,,plate,,,,18
+baseItem,armor,headwear,hood,Hood,,,,,cloth,,,,1
+baseItem,armor,headwear,leatherCap,Leather Cap,,,,,leather,,,,5
+baseItem,armor,headwear,chainCoif,Chain Coif,,,,,chain,,,,20
+baseItem,armor,headwear,helmet,Helmet,,,,,plate,,,,10
+baseItem,armor,headwear,greatHelm,Great Helm,,,,,plate,,,,30
+baseItem,jewelry,ring,plainRing,Plain Ring,,,,,metal,,,,5
+baseItem,jewelry,ring,signetRing,Signet Ring,,,,,metal,,,,10
+baseItem,jewelry,ring,engravedRing,Engraved Ring,,,,,metal,,,,15
+baseItem,jewelry,ring,arcaneRing,Arcane Ring,,,,,gemstone,,,,50
+baseItem,jewelry,necklace,cordNecklace,Cord Necklace,,,,,cloth,,,,1
+baseItem,jewelry,necklace,beadedNecklace,Beaded Necklace,,,,,wood,,,,3
+baseItem,jewelry,necklace,silverNecklace,Silver Necklace,,,,,metal,,,,25
+baseItem,jewelry,necklace,arcaneAmulet,Arcane Amulet,,,,,gemstone,,,,75

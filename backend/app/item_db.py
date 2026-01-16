@@ -59,9 +59,172 @@ def _infer_category(slot: str) -> str:
         return "weapons"
     if s in ("head", "chest", "legs", "boots", "gloves", "belt", "bracers", "shoulders", "armor", "shield"):
         return "armor"
-    if s in ("ring", "ring1", "ring2", "necklace", "gorget", "jewelry"):
+    if s in ("ring", "ring1", "ring2", "necklace", "jewelry"):
         return "jewelry"
     return "misc"
+
+def _parse_tier_refs(v: str) -> List[int]:
+    if not v:
+        return []
+    out: List[int] = []
+    for part in str(v).split(","):
+        part = part.strip()
+        if not part:
+            continue
+        try:
+            out.append(int(part))
+        except Exception:
+            continue
+    return out
+
+
+def _category_tiers(cat: ET.Element) -> List[int]:
+    applies = cat.find("appliesQuality")
+    if applies is None:
+        return [1]
+    tiers = _parse_tier_refs(applies.get("tierRefs") or "")
+    return tiers or [1]
+
+
+def _equip_slot_from_armor(slot_id: str) -> str:
+    s = (slot_id or "").strip().lower()
+    return {
+        "footwear": "boots",
+        "leggings": "legs",
+        "belt": "belt",
+        "gloves": "gloves",
+        "bracers": "bracers",
+        "headwear": "head",
+    }.get(s, s or "bag")
+
+
+def _equip_slot_from_jewelry(slot_id: str) -> str:
+    s = (slot_id or "").strip().lower()
+    return {
+        "ring": "ring",
+        "necklace": "necklace",
+    }.get(s, s or "bag")
+
+
+def _base_item_tags(node: ET.Element, category: str, slot_id: str | None = None) -> List[str]:
+    tags: List[str] = []
+    raw_tags = _split_tags(node.get("tags") or "")
+    tags.extend(raw_tags)
+    for key in ("material", "weaponClass", "rangeType", "damageType", "magicType"):
+        v = (node.get(key) or "").strip()
+        if v:
+            tags.append(v)
+    if category:
+        tags.append(category)
+    if slot_id:
+        tags.append(slot_id)
+    return tags
+
+
+def _load_base_items(root: ET.Element) -> List[ItemDef]:
+    items: List[ItemDef] = []
+    cats = root.find("categories")
+    if cats is None:
+        return items
+
+    for cat in cats.findall("category"):
+        cat_id = (cat.get("id") or "").strip().lower()
+        if not cat_id:
+            continue
+        tiers = _category_tiers(cat)
+
+        if cat_id == "weapons":
+            for base in cat.findall(".//baseItem"):
+                iid = (base.get("id") or "").strip()
+                name = (base.get("name") or "").strip()
+                if not iid or not name:
+                    continue
+                hands = _parse_int(base.get("hands") or "1", 1)
+                is_two_handed = hands >= 2
+                tags = _base_item_tags(base, cat_id)
+                if is_two_handed:
+                    tags.append("two-handed")
+                for tier in tiers:
+                    items.append(
+                        ItemDef(
+                            id=f"{iid}_t{tier}",
+                            name=name,
+                            slot="mainhand",
+                            tier=tier,
+                            category="weapons",
+                            is_two_handed=is_two_handed,
+                            tags=tags[:],
+                        )
+                    )
+            continue
+
+        if cat_id == "armor":
+            for slot in cat.findall("slot"):
+                slot_id = (slot.get("id") or "").strip().lower()
+                equip_slot = _equip_slot_from_armor(slot_id)
+                for base in slot.findall("baseItem"):
+                    iid = (base.get("id") or "").strip()
+                    name = (base.get("name") or "").strip()
+                    if not iid or not name:
+                        continue
+                    tags = _base_item_tags(base, cat_id, slot_id)
+                    for tier in tiers:
+                        items.append(
+                            ItemDef(
+                                id=f"{iid}_t{tier}",
+                                name=name,
+                                slot=equip_slot,
+                                tier=tier,
+                                category="armor",
+                                is_two_handed=False,
+                                tags=tags[:],
+                            )
+                        )
+            continue
+
+        if cat_id == "jewelry":
+            for slot in cat.findall("slot"):
+                slot_id = (slot.get("id") or "").strip().lower()
+                equip_slot = _equip_slot_from_jewelry(slot_id)
+                for base in slot.findall("baseItem"):
+                    iid = (base.get("id") or "").strip()
+                    name = (base.get("name") or "").strip()
+                    if not iid or not name:
+                        continue
+                    tags = _base_item_tags(base, cat_id, slot_id)
+                    for tier in tiers:
+                        items.append(
+                            ItemDef(
+                                id=f"{iid}_t{tier}",
+                                name=name,
+                                slot=equip_slot,
+                                tier=tier,
+                                category="jewelry",
+                                is_two_handed=False,
+                                tags=tags[:],
+                            )
+                        )
+            continue
+
+        for base in cat.findall(".//baseItem"):
+            iid = (base.get("id") or "").strip()
+            name = (base.get("name") or "").strip()
+            if not iid or not name:
+                continue
+            tags = _base_item_tags(base, cat_id)
+            for tier in tiers:
+                items.append(
+                    ItemDef(
+                        id=f"{iid}_t{tier}",
+                        name=name,
+                        slot="bag",
+                        tier=tier,
+                        category=cat_id or "misc",
+                        is_two_handed=False,
+                        tags=tags[:],
+                    )
+                )
+    return items
 
 
 def load_items(force: bool = False) -> Tuple[List[ItemDef], Optional[str]]:
@@ -101,7 +264,14 @@ def load_items(force: bool = False) -> Tuple[List[ItemDef], Optional[str]]:
 
         tier = _parse_int(node.get("tier") or node.findtext("tier") or "0", 0)
         category = (node.get("category") or node.findtext("category") or "").strip().lower() or _infer_category(slot)
+        
+        # Check for is_two_handed, two_handed, or hands attribute
         is_two_handed = _parse_bool(node.get("is_two_handed") or node.get("two_handed") or node.findtext("is_two_handed") or "")
+        if not is_two_handed:
+            # If hands="2" attribute exists, treat as two-handed
+            hands = _parse_int(node.get("hands") or node.findtext("hands") or "0", 0)
+            is_two_handed = hands >= 2
+        
         tags = _split_tags(node.get("tags") or node.findtext("tags"))
 
         # Optional convenience: tag-based inference
@@ -112,6 +282,9 @@ def load_items(force: bool = False) -> Tuple[List[ItemDef], Optional[str]]:
                 category = t.split(":", 1)[1].strip().lower() or category
 
         items.append(ItemDef(id=iid, name=name, slot=slot, tier=tier, category=category, is_two_handed=is_two_handed, tags=tags))
+
+    if not items:
+        items = _load_base_items(root)
 
     _CACHE = items
     _CACHE_ERR = None
@@ -135,6 +308,9 @@ def generate_loot(cfg: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], Optional[s
       - tags: ["undead","fire"] (all must match if provided)
     """
     items, err = load_items()
+    if not items or err:
+        # In case the cache was built before new parsers existed, force a reload.
+        items, err = load_items(force=True)
     if err:
         return [], err
     if not items:
@@ -150,6 +326,7 @@ def generate_loot(cfg: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], Optional[s
         tier_min, tier_max = tier_max, tier_min
 
     allow_magic = bool(cfg.get("allowMagic", True))
+    add_elemental = bool(cfg.get("addElemental", False))
     categories = [str(x).strip().lower() for x in (cfg.get("categories") or []) if str(x).strip()]
     slots = [str(x).strip() for x in (cfg.get("slots") or []) if str(x).strip()]
     tags = [str(x).strip().lower() for x in (cfg.get("tags") or []) if str(x).strip()]
@@ -193,15 +370,27 @@ def generate_loot(cfg: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], Optional[s
         weights.append(max(w, 0.01))
 
     out: List[Dict[str, Any]] = []
+    elemental_types = ["acid", "cold", "fire", "lightning", "poison", "thunder"]
     for _ in range(count):
         picked = _weighted_pick(pool, weights)
+        out_tags = list(picked.tags or [])
+        magic_type = None
+        if add_elemental and elemental_types:
+            magic_type = random.choice(elemental_types)
+            if magic_type not in out_tags:
+                out_tags.append(magic_type)
+            if "magic" not in out_tags and "magical" not in out_tags:
+                out_tags.append("magic")
         out.append(
             {
                 "id": picked.id,
                 "name": picked.name,
                 "slot": picked.slot,
+                "tier": picked.tier,
+                "category": picked.category,
                 "is_two_handed": picked.is_two_handed,
-                "tags": picked.tags or [],
+                "magicType": magic_type,
+                "tags": out_tags,
             }
         )
     return out, None
