@@ -38,7 +38,7 @@ class Room:
     scene: dict = field(default_factory=lambda: {"title": "Campfire", "text": "The party rests..."})
 
     # ✅ Map + tokens (so code doesn’t rely on dynamic attributes)
-    grid: dict = field(default_factory=lambda: {"cols": 20, "rows": 20, "cell": 32})
+    grid: dict = field(default_factory=lambda: {"cols": 50, "rows": 50, "cell": 20})
     map_image_url: str = ""
     tokens: List[dict] = field(default_factory=list)
     lighting: dict = field(default_factory=lambda: {"fog_enabled": False, "ambient_radius": 0, "darkness": False})

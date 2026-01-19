@@ -1,5 +1,7 @@
 import React from "react";
 
+const BUILD_STAMP = "build: 2026-01-16e";
+
 type Props = {
   status: string;
 
@@ -79,7 +81,10 @@ export default function TopBar({
         <button onClick={onDisconnect}>Disconnect</button>
       )}
 
-      <div style={{ marginLeft: "auto", fontSize: 12, opacity: 0.8, whiteSpace: "nowrap" }}>{status}</div>
+      <div style={{ marginLeft: "auto", fontSize: 12, opacity: 0.8, whiteSpace: "nowrap" }}>
+        <span>{status}</span>
+        <span style={{ marginLeft: 8, opacity: 0.6 }}>{BUILD_STAMP}</span>
+      </div>
     </header>
   );
 }
