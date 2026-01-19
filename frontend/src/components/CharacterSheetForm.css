@@ -1,0 +1,545 @@
+.characterSheet {
+  --sheet-bg-image: url("/character-sheets/character-sheet-inspo.png");
+  --sheet-frame: rgba(133, 86, 39, 0.65);
+  --sheet-input-bg: rgba(255, 255, 255, 0.75);
+  --sheet-input-text: #2b1a0b;
+  --sheet-input-shadow: rgba(0, 0, 0, 0.15);
+  --sheet-input-radius: 6px;
+  width: 100%;
+  display: grid;
+  gap: 10px;
+  place-items: center;
+}
+
+.sheetLayoutBar {
+  width: min(100%, 720px);
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.sheetLayoutPanel {
+  width: min(100%, 720px);
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.sheetLayoutGroup {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.sheetLayoutLabel {
+  font-weight: 600;
+  color: rgba(230, 237, 243, 0.75);
+}
+
+.sheetLayoutJson {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.sheetLayoutError {
+  color: #ff7a7a;
+  font-size: 12px;
+}
+
+.characterSheetCanvas {
+  position: relative;
+  width: min(100%, 720px);
+  aspect-ratio: 612 / 792;
+  background-image: var(--sheet-bg-image);
+  background-size: cover;
+  background-position: center;
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+}
+
+.characterSheetAlt .characterSheetAltCanvas {
+  position: relative;
+  width: min(100%, 720px);
+  aspect-ratio: 612 / 792;
+  background: var(--sheet-alt-bg, radial-gradient(circle at top, #f4e6c2 0%, #e7d1a1 45%, #ccb480 100%));
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(133, 86, 39, 0.35);
+  padding: 24px;
+  display: grid;
+  gap: 12px;
+}
+
+.sheetAltGrid {
+  display: grid;
+  grid-template-rows: 1fr 1fr 1fr;
+  gap: 12px;
+  height: 100%;
+}
+
+.sheetSpellGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  height: 100%;
+}
+
+.sheetAltSection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: #3a2610;
+  height: 100%;
+}
+
+.sheetAltSection textarea {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Spell sheet */
+.spellSheet {
+  width: 100%;
+  display: grid;
+  place-items: center;
+}
+
+.spellSheetCanvas {
+  width: min(100%, 840px);
+  aspect-ratio: 612 / 792;
+  border-radius: 18px;
+  border: 2px solid rgba(104, 55, 25, 0.55);
+  background: radial-gradient(circle at top, #fff3d4 0%, #f2dfb0 40%, #e2c48d 100%);
+  padding: 16px;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: 10px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+}
+
+.spellSheetHeader {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 10px;
+}
+
+.spellSheetLabel {
+  display: grid;
+  gap: 6px;
+  font-size: 11px;
+  color: #3a2610;
+}
+
+.spellSheetLabel input,
+.spellSheetLabel textarea {
+  border-radius: 8px;
+  border: 2px solid rgba(107, 57, 27, 0.7);
+  background: rgba(225, 232, 255, 0.6);
+  color: #2f1a0f;
+  font-size: 12px;
+  padding: 4px 6px;
+}
+
+.spellSheetLabel textarea {
+  resize: none;
+}
+
+.spellSheetName {
+  max-width: 60%;
+}
+
+.spellSheetGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.spellSheetGrid .spellLevelCard:nth-child(1) { grid-column: 1; }
+.spellSheetGrid .spellLevelCard:nth-child(2) { grid-column: 1; }
+.spellSheetGrid .spellLevelCard:nth-child(3) { grid-column: 1; }
+
+.spellSheetGrid .spellLevelCard:nth-child(4) { grid-column: 2; }
+.spellSheetGrid .spellLevelCard:nth-child(5) { grid-column: 2; }
+.spellSheetGrid .spellLevelCard:nth-child(6) { grid-column: 2; }
+
+.spellSheetGrid .spellLevelCard:nth-child(7) { grid-column: 3; }
+.spellSheetGrid .spellLevelCard:nth-child(8) { grid-column: 3; }
+.spellSheetGrid .spellLevelCard:nth-child(9) { grid-column: 3; }
+.spellSheetGrid .spellLevelCard:nth-child(10) { grid-column: 3; }
+
+.spellLevelCard {
+  border-radius: 14px;
+  border: 2px solid rgba(107, 57, 27, 0.7);
+  padding: 6px;
+  background: rgba(255, 255, 255, 0.45);
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  gap: 6px;
+  min-height: 0;
+}
+
+.spellLevelHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.spellLevelBadge {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 2px solid rgba(107, 57, 27, 0.85);
+  background: #fff8ef;
+  color: #3a2610;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+}
+
+.spellLevelTitle {
+  font-size: 12px;
+  font-weight: 700;
+  color: #3a2610;
+}
+
+.spellSlots {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  font-size: 10px;
+  color: #4b2e17;
+}
+
+.spellSlots label {
+  display: grid;
+  gap: 4px;
+}
+
+.spellSlots input {
+  border-radius: 6px;
+  border: 2px solid rgba(107, 57, 27, 0.7);
+  background: rgba(225, 232, 255, 0.6);
+  color: #2f1a0f;
+  font-size: 11px;
+  padding: 3px 4px;
+}
+
+.spellSlotsDisabled {
+  opacity: 0.6;
+}
+
+.spellLevelList {
+  border-radius: 8px;
+  border: 2px solid rgba(107, 57, 27, 0.65);
+  background: rgba(255, 255, 255, 0.7);
+  padding: 4px 6px;
+  font-size: 11px;
+  color: #2f1a0f;
+  min-height: 0;
+  resize: none;
+}
+
+.spellSheetFooter {
+  max-height: 120px;
+}
+
+.spellSheetFooter textarea {
+  min-height: 90px;
+}
+
+.sheetField {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sheetFieldEditing {
+  outline: 1px dashed rgba(255, 255, 255, 0.5);
+  cursor: move;
+}
+
+.sheetFieldEditing input,
+.sheetFieldEditing textarea {
+  pointer-events: none;
+}
+
+.sheetResizeHandle {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  background: rgba(0, 0, 0, 0.5);
+  cursor: nwse-resize;
+}
+
+.sheetField input,
+.sheetField textarea {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--sheet-input-radius);
+  border: 1px solid var(--sheet-frame);
+  background: var(--sheet-input-bg);
+  color: var(--sheet-input-text);
+  font-size: 12px;
+  padding: 4px 6px;
+  box-shadow: inset 0 0 0 1px var(--sheet-input-shadow);
+}
+
+.sheetField textarea {
+  resize: none;
+}
+
+.sheetField input:disabled,
+.sheetField textarea:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.sheetSplit {
+  display: grid;
+  grid-template-columns: 1fr 60px;
+  gap: 6px;
+  width: 100%;
+}
+
+.field-class {
+  left: 5%;
+  top: 3%;
+  width: 28%;
+  height: 3%;
+}
+
+.field-subclass {
+  left: 5%;
+  top: 6.5%;
+  width: 28%;
+  height: 3%;
+}
+
+.field-xp {
+  left: 5%;
+  top: 10%;
+  width: 28%;
+  height: 3%;
+}
+
+.field-race {
+  left: 67%;
+  top: 3%;
+  width: 28%;
+  height: 3%;
+}
+
+.field-background {
+  left: 67%;
+  top: 6.5%;
+  width: 28%;
+  height: 3%;
+}
+
+.field-alignment {
+  left: 67%;
+  top: 10%;
+  width: 28%;
+  height: 3%;
+}
+
+.field-character-name {
+  left: 35%;
+  top: 3%;
+  width: 30%;
+  height: 4%;
+}
+
+.field-player-name {
+  left: 35%;
+  top: 8%;
+  width: 30%;
+  height: 3%;
+}
+
+.field-stats {
+  left: 5%;
+  top: 15%;
+  width: 90%;
+  height: 14%;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 1%;
+}
+
+.statCell {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: 4px;
+}
+
+.field-prof-bonus {
+  left: 30%;
+  top: 32%;
+  width: 10%;
+  height: 3%;
+}
+
+.field-status {
+  left: 41%;
+  top: 32%;
+  width: 10%;
+  height: 3%;
+}
+
+.field-initiative {
+  left: 52%;
+  top: 32%;
+  width: 10%;
+  height: 3%;
+}
+
+.field-speed {
+  left: 63%;
+  top: 32%;
+  width: 10%;
+  height: 3%;
+}
+
+.field-inspiration {
+  left: 74%;
+  top: 32%;
+  width: 10%;
+  height: 3%;
+}
+
+.field-skills {
+  left: 5%;
+  top: 32%;
+  width: 23%;
+  height: 33%;
+}
+
+.field-attacks {
+  left: 41%;
+  top: 37%;
+  width: 32%;
+  height: 13%;
+}
+
+.field-armor {
+  left: 41%;
+  top: 52%;
+  width: 32%;
+  height: 8%;
+}
+
+.field-ac {
+  left: 30%;
+  top: 55%;
+  width: 10%;
+  height: 3%;
+}
+
+.field-hp-max {
+  left: 77%;
+  top: 37%;
+  width: 8%;
+  height: 3%;
+}
+
+.field-hp-current {
+  left: 86%;
+  top: 37%;
+  width: 8%;
+  height: 3%;
+}
+
+.field-hp-temp {
+  left: 86%;
+  top: 41%;
+  width: 8%;
+  height: 3%;
+}
+
+.field-hit-dice-type {
+  left: 77%;
+  top: 45%;
+  width: 8%;
+  height: 3%;
+}
+
+.field-hit-dice-used {
+  left: 86%;
+  top: 45%;
+  width: 8%;
+  height: 3%;
+}
+
+.field-death-success {
+  left: 77%;
+  top: 50%;
+  width: 8%;
+  height: 3%;
+}
+
+.field-death-fail {
+  left: 86%;
+  top: 50%;
+  width: 8%;
+  height: 3%;
+}
+
+.field-exhaustion {
+  left: 77%;
+  top: 56%;
+  width: 17%;
+  height: 3%;
+}
+
+.field-conditions {
+  left: 77%;
+  top: 60%;
+  width: 17%;
+  height: 6%;
+}
+
+.field-proficiencies {
+  left: 5%;
+  top: 67%;
+  width: 26%;
+  height: 26%;
+}
+
+.field-equipment {
+  left: 34%;
+  top: 67%;
+  width: 38%;
+  height: 26%;
+}
+
+.field-features {
+  left: 75%;
+  top: 67%;
+  width: 20%;
+  height: 26%;
+  display: grid;
+  grid-template-rows: 1fr 0.4fr;
+  gap: 6px;
+}
+
+.sheetTextareaSmall {
+  height: 100%;
+}
+
+.field-notes {
+  left: 34%;
+  top: 60%;
+  width: 38%;
+  height: 6%;
+}

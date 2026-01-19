@@ -64,6 +64,12 @@ export default function ScenePanel({ scene, members, roomId }: Props) {
   const title = scene?.title ?? "—";
   const text = scene?.text ?? "—";
   const safeMembers = Array.isArray(members) ? members : [];
+  const sortedMembers = useMemo(() => {
+    return [...safeMembers].sort((a, b) => {
+      if (a.role === b.role) return a.name.localeCompare(b.name);
+      return a.role === "dm" ? -1 : 1;
+    });
+  }, [safeMembers]);
 
   const [characters, setCharacters] = useState<CharacterRecord[]>([]);
   const [charError, setCharError] = useState("");
@@ -158,7 +164,7 @@ export default function ScenePanel({ scene, members, roomId }: Props) {
         </button>
       </div>
       <ul className="members">
-        {safeMembers.map((m) => {
+        {sortedMembers.map((m) => {
           const matches = getCharactersForMember(m, characters);
           const names = matches.map((char) => char.name || char.sheet?.name).filter(Boolean);
           if (m.role === "player") {

@@ -320,6 +320,146 @@ button:disabled, input:disabled, select:disabled {
   margin-bottom: 8px;
 }
 
+/* Map tabs */
+.mapTabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.mapTab {
+  flex: 1;
+  padding: 6px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(0,0,0,0.2);
+  min-width: 140px;
+}
+
+.mapTab.active {
+  background: rgba(40, 140, 90, 0.2);
+  border-color: rgba(40, 140, 90, 0.5);
+}
+
+/* Character panel */
+.charPanelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.charPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  height: 100%;
+}
+
+.charQuickForm {
+  margin-top: 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.2);
+  display: grid;
+  gap: 10px;
+}
+
+.charQuickTitle {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+.charQuickGrid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.charQuickLabel {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.charPanelSub {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.charPanelActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.charPanelError {
+  color: #ff7a7a;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.charPanelStatus {
+  color: #8fe3b4;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.charPanelEmpty {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+.charPanelLabel {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  margin-bottom: 10px;
+}
+
+.charPanelGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.charPanelRoster {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.charPanelRosterItem {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(0,0,0,0.2);
+  text-align: left;
+}
+
+.charPanelRosterName {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.charPanelRosterMeta {
+  font-size: 11px;
+  color: var(--muted);
+}
+
 /* Scene + members */
 .sceneTitle {
   font-weight: 700;

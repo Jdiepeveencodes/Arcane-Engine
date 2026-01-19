@@ -11,6 +11,7 @@ import MapDMControls from "./components/MapDMControls";
 import InventoryPanel from "./components/InventoryPanel";
 import DMLootPanel from "./components/DMLootPanel";
 import LootBagPanel from "./components/LootBagPanel";
+import CharacterPanel from "./components/CharacterPanel";
 
 import { useRoomSocket } from "./hooks/useRoomSocket";
 
@@ -29,6 +30,7 @@ export default function App() {
   const [diceMode, setDiceMode] = useState("");
   const [diceMod, setDiceMod] = useState("0");
   const [dmPlayerView, setDmPlayerView] = useState(false);
+  const [mapTab, setMapTab] = useState<"map" | "sheet" | "sheet2" | "spells">("map");
 
   const pendingBatchRef = useRef<{ active: boolean; expectedResults: number }>({
     active: false,
@@ -196,18 +198,62 @@ export default function App() {
 
         <div className="mapRow">
           <section className={`panel mapShell ${isDM ? "dmRail" : "noRail"}`}>
-            <div className="mapCanvasWrap">
-              <MapPanelPixi
-                grid={room.grid}
-                lighting={room.lighting}
-                mapImageUrl={room.mapImageUrl}
-                tokens={room.tokens}
-                members={room.members}
-                role={room.role}
-                youUserId={room.you?.user_id || ""}
-                onTokenMove={room.moveToken}
-                forcePlayerView={isDM && dmPlayerView}
-              />
+            <div className="mapMain">
+              <div className="mapTabs">
+                <button
+                  type="button"
+                  className={`mapTab ${mapTab === "map" ? "active" : ""}`}
+                  onClick={() => setMapTab("map")}
+                >
+                  Map
+                </button>
+                <button
+                  type="button"
+                  className={`mapTab ${mapTab === "sheet" ? "active" : ""}`}
+                  onClick={() => setMapTab("sheet")}
+                >
+                  Character sheet
+                </button>
+                <button
+                  type="button"
+                  className={`mapTab ${mapTab === "sheet2" ? "active" : ""}`}
+                  onClick={() => setMapTab("sheet2")}
+                >
+                  Character sheet P.2
+                </button>
+                <button
+                  type="button"
+                  className={`mapTab ${mapTab === "spells" ? "active" : ""}`}
+                  onClick={() => setMapTab("spells")}
+                >
+                  Spells
+                </button>
+              </div>
+              <div className="mapCanvasWrap">
+                <div className={`mapPane ${mapTab === "map" ? "active" : ""}`}>
+                  <MapPanelPixi
+                    grid={room.grid}
+                    lighting={room.lighting}
+                    mapImageUrl={room.mapImageUrl}
+                    tokens={room.tokens}
+                    members={room.members}
+                    role={room.role}
+                    youUserId={room.you?.user_id || ""}
+                    onTokenMove={room.moveToken}
+                    forcePlayerView={isDM && dmPlayerView}
+                  />
+                </div>
+                <div className={`mapPane ${mapTab === "map" ? "" : "active"}`}>
+                  <CharacterPanel
+                    roomId={room.roomId}
+                    members={room.members}
+                    role={room.role}
+                    userId={room.you?.user_id || ""}
+                    page={mapTab === "sheet" ? "sheet" : mapTab === "sheet2" ? "sheet2" : "spells"}
+                    inventories={room.inventories}
+                  />
+                </div>
+              </div>
             </div>
 
             {/* ✅ SECOND COLUMN: DM controls OR Player inventory (never both) */}

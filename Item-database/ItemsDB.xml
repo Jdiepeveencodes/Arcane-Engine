@@ -76,6 +76,9 @@
       <type id="piercing" name="Piercing"/>
       <type id="slashing" name="Slashing"/>
     </group>
+    <group id="special" name="Special Damage">
+      <type id="special" name="Special"/>
+    </group>
   </damageTypes>
 
   <magicTypes>
@@ -97,6 +100,100 @@
   </magicTypes>
 
   <!-- =========================================================
+       DND 5E RULE FIELDS + TAXONOMY
+       - These are references the generator/UI can use.
+       ========================================================= -->
+  <weaponProperties>
+    <property id="ammunition" name="Ammunition" description="Requires specific projectiles to make ranged attacks."/>
+    <property id="finesse" name="Finesse" description="Use Strength or Dexterity for attack and damage rolls."/>
+    <property id="heavy" name="Heavy" description="Small creatures have disadvantage on attacks."/>
+    <property id="light" name="Light" description="Eligible for two-weapon fighting."/>
+    <property id="loading" name="Loading" description="One attack per action/bonus/reaction."/>
+    <property id="range" name="Range" description="Has normal/long range; beyond normal has disadvantage."/>
+    <property id="reach" name="Reach" description="Adds 5 feet to attack reach."/>
+    <property id="thrown" name="Thrown" description="Can be thrown using same ability modifier."/>
+    <property id="two-handed" name="Two-Handed" description="Requires two hands to use."/>
+    <property id="versatile" name="Versatile" description="Can be used 1H or 2H with alternate damage die."/>
+    <property id="special" name="Special" description="Has special rules beyond standard weapon use."/>
+  </weaponProperties>
+
+  <weaponMasteries>
+    <mastery id="cleave" name="Cleave" description="Hit a second creature within 5 feet of the first."/>
+    <mastery id="graze" name="Graze" description="Deal ability modifier damage even on a miss."/>
+    <mastery id="nick" name="Nick" description="Light weapon extra attack is part of initial action."/>
+    <mastery id="push" name="Push" description="Knock a creature 10 feet away."/>
+    <mastery id="sap" name="Sap" description="Target has disadvantage on its next attack roll."/>
+    <mastery id="slow" name="Slow" description="Reduce target speed by 10 feet until your next turn."/>
+    <mastery id="topple" name="Topple" description="Force save or fall prone."/>
+    <mastery id="vex" name="Vex" description="Gain advantage on next attack against target."/>
+  </weaponMasteries>
+
+  <armorRules>
+    <field id="acBase" name="Armor Class (Base)"/>
+    <field id="dexCap" name="Dexterity Cap"/>
+    <field id="strengthRequirement" name="Strength Requirement"/>
+    <field id="stealthDisadvantage" name="Stealth (Disadvantage)"/>
+    <field id="donTime" name="Don Time"/>
+    <field id="doffTime" name="Doff Time"/>
+
+    <armorCategory id="light" name="Light Armor" dexCap="none" stealthDisadvantage="false" donTime="1 minute" doffTime="1 minute"/>
+    <armorCategory id="medium" name="Medium Armor" dexCap="+2" stealthDisadvantage="varies" donTime="5 minutes" doffTime="1 minute"/>
+    <armorCategory id="heavy" name="Heavy Armor" dexCap="0" stealthDisadvantage="true" donTime="10 minutes" doffTime="5 minutes"/>
+    <armorCategory id="shield" name="Shield" acBonus="2" donTime="1 action" doffTime="1 action"/>
+
+    <armorType id="padded" name="Padded" category="light" acBase="11" dexCap="none" stealthDisadvantage="true" strengthRequirement="0" donTime="1 minute" doffTime="1 minute" material="cloth"/>
+    <armorType id="leather" name="Leather" category="light" acBase="11" dexCap="none" stealthDisadvantage="false" strengthRequirement="0" donTime="1 minute" doffTime="1 minute" material="leather"/>
+    <armorType id="studdedLeather" name="Studded Leather" category="light" acBase="12" dexCap="none" stealthDisadvantage="false" strengthRequirement="0" donTime="1 minute" doffTime="1 minute" material="leather"/>
+
+    <armorType id="hide" name="Hide" category="medium" acBase="12" dexCap="+2" stealthDisadvantage="false" strengthRequirement="0" donTime="5 minutes" doffTime="1 minute" material="leather"/>
+    <armorType id="chainShirt" name="Chain Shirt" category="medium" acBase="13" dexCap="+2" stealthDisadvantage="false" strengthRequirement="0" donTime="5 minutes" doffTime="1 minute" material="chain"/>
+    <armorType id="scaleMail" name="Scale Mail" category="medium" acBase="14" dexCap="+2" stealthDisadvantage="true" strengthRequirement="0" donTime="5 minutes" doffTime="1 minute" material="metal"/>
+    <armorType id="breastplate" name="Breastplate" category="medium" acBase="14" dexCap="+2" stealthDisadvantage="false" strengthRequirement="0" donTime="5 minutes" doffTime="1 minute" material="metal"/>
+    <armorType id="halfPlate" name="Half Plate" category="medium" acBase="15" dexCap="+2" stealthDisadvantage="true" strengthRequirement="0" donTime="5 minutes" doffTime="1 minute" material="metal"/>
+
+    <armorType id="ringMail" name="Ring Mail" category="heavy" acBase="14" dexCap="0" stealthDisadvantage="true" strengthRequirement="0" donTime="10 minutes" doffTime="5 minutes" material="metal"/>
+    <armorType id="chainMail" name="Chain Mail" category="heavy" acBase="16" dexCap="0" stealthDisadvantage="true" strengthRequirement="13" donTime="10 minutes" doffTime="5 minutes" material="chain"/>
+    <armorType id="splint" name="Splint" category="heavy" acBase="17" dexCap="0" stealthDisadvantage="true" strengthRequirement="15" donTime="10 minutes" doffTime="5 minutes" material="metal"/>
+    <armorType id="plate" name="Plate" category="heavy" acBase="18" dexCap="0" stealthDisadvantage="true" strengthRequirement="15" donTime="10 minutes" doffTime="5 minutes" material="plate"/>
+
+    <armorType id="shield" name="Shield" category="shield" acBase="2" dexCap="none" stealthDisadvantage="false" strengthRequirement="0" donTime="1 action" doffTime="1 action" material="wood"/>
+  </armorRules>
+
+  <magicItemProperties>
+    <rarity id="common" name="Common"/>
+    <rarity id="uncommon" name="Uncommon"/>
+    <rarity id="rare" name="Rare"/>
+    <rarity id="very_rare" name="Very Rare"/>
+    <rarity id="legendary" name="Legendary"/>
+    <rarity id="artifact" name="Artifact"/>
+
+    <attunement id="required" name="Requires Attunement"/>
+    <attunement id="none" name="No Attunement"/>
+
+    <itemCategory id="weapon" name="Weapon"/>
+    <itemCategory id="armor" name="Armor"/>
+    <itemCategory id="potion" name="Potion"/>
+    <itemCategory id="ring" name="Ring"/>
+    <itemCategory id="rod" name="Rod"/>
+    <itemCategory id="scroll" name="Scroll"/>
+    <itemCategory id="staff" name="Staff"/>
+    <itemCategory id="wand" name="Wand"/>
+    <itemCategory id="wondrous" name="Wondrous Item"/>
+
+    <minorProperty id="gleaming" name="Gleaming" description="Never gets dirty."/>
+    <minorProperty id="sentinel" name="Sentinel" description="Glows near certain enemies."/>
+    <minorProperty id="harmonious" name="Harmonious" description="Quicker attunement."/>
+  </magicItemProperties>
+
+  <specialMaterials>
+    <material id="adamantine" name="Adamantine" effect="Armor: critical hits become normal hits. Weapons: auto-crit on objects."/>
+    <material id="mithral" name="Mithral" effect="No Strength requirement; no Stealth disadvantage; lighter."/>
+    <material id="silvered" name="Silvered" effect="Bypasses resistances of certain creatures."/>
+    <material id="coldIron" name="Cold Iron" effect="Traditionally harmful to fey or chaotic creatures."/>
+    <material id="dragonhide" name="Dragonhide" effect="Non-metal armor suitable for druids."/>
+  </specialMaterials>
+
+  <!-- =========================================================
        CATEGORIES
        Weapons / Armor / Jewelry
        ========================================================= -->
@@ -112,55 +209,55 @@
       <subCategory id="simple" name="Simple Weapons">
 
         <group id="simpleMelee" name="Simple Melee">
-          <baseItem id="club" damageType="bludgeoning" name="Club" weaponClass="simple" rangeType="melee" material="wood" baseGold="0.1" hands="1"/>
-          <baseItem id="dagger" damageType="piercing" name="Dagger" weaponClass="simple" rangeType="melee" material="metal" baseGold="2" hands="1"/>
-          <baseItem id="greatclub" damageType="bludgeoning" name="Greatclub" weaponClass="simple" rangeType="melee" material="wood" baseGold="0.2" hands="2"/>
-          <baseItem id="handaxe" damageType="slashing" name="Handaxe" weaponClass="simple" rangeType="melee" material="metal" baseGold="5" hands="1"/>
-          <baseItem id="javelin" damageType="piercing" name="Javelin" weaponClass="simple" rangeType="melee" material="wood" baseGold="0.5" hands="1"/>
-          <baseItem id="lightHammer" damageType="bludgeoning" name="Light Hammer" weaponClass="simple" rangeType="melee" material="metal" baseGold="2" hands="1"/>
-          <baseItem id="mace" damageType="bludgeoning" name="Mace" weaponClass="simple" rangeType="melee" material="metal" baseGold="5" hands="1"/>
-          <baseItem id="quarterstaff" damageType="bludgeoning" name="Quarterstaff" weaponClass="simple" rangeType="melee" material="wood" baseGold="0.2" hands="2"/>
-          <baseItem id="sickle" damageType="slashing" name="Sickle" weaponClass="simple" rangeType="melee" material="metal" baseGold="1" hands="1"/>
-          <baseItem id="spear" damageType="piercing" name="Spear" weaponClass="simple" rangeType="melee" material="wood" baseGold="1" hands="1"/>
+          <baseItem id="club" damageType="bludgeoning" damageDice="1d4" properties="light" mastery="slow" name="Club" weaponClass="simple" rangeType="melee" material="wood" baseGold="0.1" hands="1"/>
+          <baseItem id="dagger" damageType="piercing" damageDice="1d4" properties="finesse, light, thrown" mastery="nick" range="20/60" name="Dagger" weaponClass="simple" rangeType="melee" material="metal" baseGold="2" hands="1"/>
+          <baseItem id="greatclub" damageType="bludgeoning" damageDice="1d8" properties="two-handed" mastery="push" name="Greatclub" weaponClass="simple" rangeType="melee" material="wood" baseGold="0.2" hands="2"/>
+          <baseItem id="handaxe" damageType="slashing" damageDice="1d6" properties="light, thrown" mastery="vex" range="20/60" name="Handaxe" weaponClass="simple" rangeType="melee" material="metal" baseGold="5" hands="1"/>
+          <baseItem id="javelin" damageType="piercing" damageDice="1d6" properties="thrown" mastery="slow" range="30/120" name="Javelin" weaponClass="simple" rangeType="melee" material="wood" baseGold="0.5" hands="1"/>
+          <baseItem id="lightHammer" damageType="bludgeoning" damageDice="1d4" properties="light, thrown" mastery="slow" range="20/60" name="Light Hammer" weaponClass="simple" rangeType="melee" material="metal" baseGold="2" hands="1"/>
+          <baseItem id="mace" damageType="bludgeoning" damageDice="1d6" mastery="sap" name="Mace" weaponClass="simple" rangeType="melee" material="metal" baseGold="5" hands="1"/>
+          <baseItem id="quarterstaff" damageType="bludgeoning" damageDice="1d6" properties="versatile" mastery="topple" versatile="1d8" name="Quarterstaff" weaponClass="simple" rangeType="melee" material="wood" baseGold="0.2" hands="2"/>
+          <baseItem id="sickle" damageType="slashing" damageDice="1d4" properties="light" mastery="nick" name="Sickle" weaponClass="simple" rangeType="melee" material="metal" baseGold="1" hands="1"/>
+          <baseItem id="spear" damageType="piercing" damageDice="1d6" properties="thrown, versatile" mastery="topple" range="20/60" versatile="1d8" name="Spear" weaponClass="simple" rangeType="melee" material="wood" baseGold="1" hands="1"/>
         </group>
 
         <group id="simpleRanged" name="Simple Ranged">
-          <baseItem id="lightCrossbow" damageType="piercing" name="Light Crossbow" weaponClass="simple" rangeType="ranged" material="wood" baseGold="25" hands="2"/>
-          <baseItem id="dart" damageType="piercing" name="Dart" weaponClass="simple" rangeType="ranged" material="metal" baseGold="0.05" hands="1"/>
-          <baseItem id="shortbow" damageType="piercing" name="Shortbow" weaponClass="simple" rangeType="ranged" material="wood" baseGold="25" hands="2"/>
-          <baseItem id="sling" damageType="bludgeoning" name="Sling" weaponClass="simple" rangeType="ranged" material="cloth" baseGold="0.1" hands="1"/>
+          <baseItem id="lightCrossbow" damageType="piercing" damageDice="1d8" properties="ammunition, loading, two-handed" mastery="slow" range="80/320" name="Light Crossbow" weaponClass="simple" rangeType="ranged" material="wood" baseGold="25" hands="2"/>
+          <baseItem id="dart" damageType="piercing" damageDice="1d4" properties="finesse, thrown" mastery="vex" range="20/60" name="Dart" weaponClass="simple" rangeType="ranged" material="metal" baseGold="0.05" hands="1"/>
+          <baseItem id="shortbow" damageType="piercing" damageDice="1d6" properties="ammunition, two-handed" mastery="vex" range="80/320" name="Shortbow" weaponClass="simple" rangeType="ranged" material="wood" baseGold="25" hands="2"/>
+          <baseItem id="sling" damageType="bludgeoning" damageDice="1d4" properties="ammunition" mastery="slow" range="30/120" name="Sling" weaponClass="simple" rangeType="ranged" material="cloth" baseGold="0.1" hands="1"/>
         </group>
       </subCategory>
 
       <subCategory id="martial" name="Martial Weapons">
 
         <group id="martialMelee" name="Martial Melee">
-          <baseItem id="battleaxe" damageType="slashing" name="Battleaxe" weaponClass="martial" rangeType="melee" material="metal" baseGold="10" hands="1"/>
-          <baseItem id="flail" damageType="bludgeoning" name="Flail" weaponClass="martial" rangeType="melee" material="metal" baseGold="10" hands="1"/>
-          <baseItem id="glaive" damageType="slashing" name="Glaive" weaponClass="martial" rangeType="melee" material="metal" baseGold="20" hands="2"/>
-          <baseItem id="greataxe" damageType="slashing" name="Greataxe" weaponClass="martial" rangeType="melee" material="metal" baseGold="30" hands="2"/>
-          <baseItem id="greatsword" damageType="slashing" name="Greatsword" weaponClass="martial" rangeType="melee" material="metal" baseGold="50" hands="2"/>
-          <baseItem id="halberd" damageType="slashing" name="Halberd" weaponClass="martial" rangeType="melee" material="metal" baseGold="20" hands="2"/>
-          <baseItem id="lance" damageType="piercing" name="Lance" weaponClass="martial" rangeType="melee" material="wood" baseGold="10" hands="1"/>
-          <baseItem id="longsword" damageType="slashing" name="Longsword" weaponClass="martial" rangeType="melee" material="metal" baseGold="15" hands="1"/>
-          <baseItem id="maul" damageType="bludgeoning" name="Maul" weaponClass="martial" rangeType="melee" material="wood" baseGold="10" hands="2"/>
-          <baseItem id="morningstar" damageType="piercing" name="Morningstar" weaponClass="martial" rangeType="melee" material="metal" baseGold="15" hands="1"/>
-          <baseItem id="pike" damageType="piercing" name="Pike" weaponClass="martial" rangeType="melee" material="wood" baseGold="5" hands="2"/>
-          <baseItem id="rapier" damageType="piercing" name="Rapier" weaponClass="martial" rangeType="melee" material="metal" baseGold="25" hands="1"/>
-          <baseItem id="scimitar" damageType="slashing" name="Scimitar" weaponClass="martial" rangeType="melee" material="metal" baseGold="25" hands="1"/>
-          <baseItem id="shortsword" damageType="piercing" name="Shortsword" weaponClass="martial" rangeType="melee" material="metal" baseGold="10" hands="1"/>
-          <baseItem id="trident" damageType="piercing" name="Trident" weaponClass="martial" rangeType="melee" material="metal" baseGold="5" hands="1"/>
-          <baseItem id="warPick" damageType="piercing" name="War Pick" weaponClass="martial" rangeType="melee" material="metal" baseGold="5" hands="1"/>
-          <baseItem id="warhammer" damageType="bludgeoning" name="Warhammer" weaponClass="martial" rangeType="melee" material="metal" baseGold="15" hands="1"/>
-          <baseItem id="whip" damageType="slashing" name="Whip" weaponClass="martial" rangeType="melee" material="leather" baseGold="2" hands="1"/>
+          <baseItem id="battleaxe" damageType="slashing" damageDice="1d8" properties="versatile" mastery="topple" versatile="1d10" name="Battleaxe" weaponClass="martial" rangeType="melee" material="metal" baseGold="10" hands="1"/>
+          <baseItem id="flail" damageType="bludgeoning" damageDice="1d8" mastery="sap" name="Flail" weaponClass="martial" rangeType="melee" material="metal" baseGold="10" hands="1"/>
+          <baseItem id="glaive" damageType="slashing" damageDice="1d10" properties="heavy, reach, two-handed" mastery="graze" name="Glaive" weaponClass="martial" rangeType="melee" material="metal" baseGold="20" hands="2"/>
+          <baseItem id="greataxe" damageType="slashing" damageDice="1d12" properties="heavy, two-handed" mastery="cleave" name="Greataxe" weaponClass="martial" rangeType="melee" material="metal" baseGold="30" hands="2"/>
+          <baseItem id="greatsword" damageType="slashing" damageDice="2d6" properties="heavy, two-handed" mastery="graze" name="Greatsword" weaponClass="martial" rangeType="melee" material="metal" baseGold="50" hands="2"/>
+          <baseItem id="halberd" damageType="slashing" damageDice="1d10" properties="heavy, reach, two-handed" mastery="cleave" name="Halberd" weaponClass="martial" rangeType="melee" material="metal" baseGold="20" hands="2"/>
+          <baseItem id="lance" damageType="piercing" damageDice="1d12" properties="reach, special" mastery="push" name="Lance" weaponClass="martial" rangeType="melee" material="wood" baseGold="10" hands="1"/>
+          <baseItem id="longsword" damageType="slashing" damageDice="1d8" properties="versatile" mastery="sap" versatile="1d10" name="Longsword" weaponClass="martial" rangeType="melee" material="metal" baseGold="15" hands="1"/>
+          <baseItem id="maul" damageType="bludgeoning" damageDice="2d6" properties="heavy, two-handed" mastery="topple" name="Maul" weaponClass="martial" rangeType="melee" material="wood" baseGold="10" hands="2"/>
+          <baseItem id="morningstar" damageType="piercing" damageDice="1d8" mastery="sap" name="Morningstar" weaponClass="martial" rangeType="melee" material="metal" baseGold="15" hands="1"/>
+          <baseItem id="pike" damageType="piercing" damageDice="1d10" properties="heavy, reach, two-handed" mastery="push" name="Pike" weaponClass="martial" rangeType="melee" material="wood" baseGold="5" hands="2"/>
+          <baseItem id="rapier" damageType="piercing" damageDice="1d8" properties="finesse" mastery="vex" name="Rapier" weaponClass="martial" rangeType="melee" material="metal" baseGold="25" hands="1"/>
+          <baseItem id="scimitar" damageType="slashing" damageDice="1d6" properties="finesse, light" mastery="nick" name="Scimitar" weaponClass="martial" rangeType="melee" material="metal" baseGold="25" hands="1"/>
+          <baseItem id="shortsword" damageType="piercing" damageDice="1d6" properties="finesse, light" mastery="vex" name="Shortsword" weaponClass="martial" rangeType="melee" material="metal" baseGold="10" hands="1"/>
+          <baseItem id="trident" damageType="piercing" damageDice="1d6" properties="thrown, versatile" mastery="topple" range="20/60" versatile="1d8" name="Trident" weaponClass="martial" rangeType="melee" material="metal" baseGold="5" hands="1"/>
+          <baseItem id="warPick" damageType="piercing" damageDice="1d8" mastery="sap" name="War Pick" weaponClass="martial" rangeType="melee" material="metal" baseGold="5" hands="1"/>
+          <baseItem id="warhammer" damageType="bludgeoning" damageDice="1d8" properties="versatile" mastery="topple" versatile="1d10" name="Warhammer" weaponClass="martial" rangeType="melee" material="metal" baseGold="15" hands="1"/>
+          <baseItem id="whip" damageType="slashing" damageDice="1d4" properties="finesse, reach" mastery="slow" name="Whip" weaponClass="martial" rangeType="melee" material="leather" baseGold="2" hands="1"/>
         </group>
 
         <group id="martialRanged" name="Martial Ranged">
-          <baseItem id="blowgun" damageType="piercing" name="Blowgun" weaponClass="martial" rangeType="ranged" material="wood" baseGold="10" hands="1"/>
-          <baseItem id="handCrossbow" damageType="piercing" name="Hand Crossbow" weaponClass="martial" rangeType="ranged" material="wood" baseGold="75" hands="1"/>
-          <baseItem id="heavyCrossbow" damageType="piercing" name="Heavy Crossbow" weaponClass="martial" rangeType="ranged" material="wood" baseGold="50" hands="2"/>
-          <baseItem id="longbow" damageType="piercing" name="Longbow" weaponClass="martial" rangeType="ranged" material="wood" baseGold="50" hands="2"/>
-          <baseItem id="net" damageType="bludgeoning" name="Net" weaponClass="martial" rangeType="ranged" material="cloth" baseGold="1" hands="2"/>
+          <baseItem id="blowgun" damageType="piercing" damageDice="1" properties="ammunition, loading" mastery="slow" range="25/100" name="Blowgun" weaponClass="martial" rangeType="ranged" material="wood" baseGold="10" hands="1"/>
+          <baseItem id="handCrossbow" damageType="piercing" damageDice="1d6" properties="ammunition, light, loading" mastery="vex" range="30/120" name="Hand Crossbow" weaponClass="martial" rangeType="ranged" material="wood" baseGold="75" hands="1"/>
+          <baseItem id="heavyCrossbow" damageType="piercing" damageDice="1d10" properties="ammunition, heavy, loading, two-handed" mastery="push" range="100/400" name="Heavy Crossbow" weaponClass="martial" rangeType="ranged" material="wood" baseGold="50" hands="2"/>
+          <baseItem id="longbow" damageType="piercing" damageDice="1d8" properties="ammunition, heavy, two-handed" mastery="slow" range="150/600" name="Longbow" weaponClass="martial" rangeType="ranged" material="wood" baseGold="50" hands="2"/>
+          <baseItem id="net" damageType="special" damageDice="0" properties="special, thrown" mastery="topple" range="5/15" name="Net" weaponClass="martial" rangeType="ranged" material="cloth" baseGold="1" hands="2"/>
         </group>
       </subCategory>
 
@@ -176,53 +273,53 @@
     <category id="armor" name="Armor">
 
       <slot id="footwear" name="Footwear">
-        <baseItem id="sandals" name="Sandals" material="cloth" baseGold="0.2"/>
-        <baseItem id="leatherBoots" name="Leather Boots" material="leather" baseGold="5"/>
-        <baseItem id="reinforcedBoots" name="Reinforced Boots" material="leather" baseGold="8"/>
-        <baseItem id="heavyGreaves" name="Heavy Greaves" material="plate" baseGold="15"/>
+        <baseItem id="sandals" name="Sandals" material="cloth" baseGold="0.2" armorType="padded" armorCategory="light" acBase="11" dexCap="none" strengthRequirement="0" stealthDisadvantage="true" donTime="1 minute" doffTime="1 minute"/>
+        <baseItem id="leatherBoots" name="Leather Boots" material="leather" baseGold="5" armorType="leather" armorCategory="light" acBase="11" dexCap="none" strengthRequirement="0" stealthDisadvantage="false" donTime="1 minute" doffTime="1 minute"/>
+        <baseItem id="reinforcedBoots" name="Reinforced Boots" material="leather" baseGold="8" armorType="studdedLeather" armorCategory="light" acBase="12" dexCap="none" strengthRequirement="0" stealthDisadvantage="false" donTime="1 minute" doffTime="1 minute"/>
+        <baseItem id="heavyGreaves" name="Heavy Greaves" material="plate" baseGold="15" armorType="plate" armorCategory="heavy" acBase="18" dexCap="0" strengthRequirement="15" stealthDisadvantage="true" donTime="10 minutes" doffTime="5 minutes"/>
       </slot>
 
       <slot id="leggings" name="Leggings">
-        <baseItem id="clothTrousers" name="Cloth Trousers" material="cloth" baseGold="0.5"/>
-        <baseItem id="leatherLeggings" name="Leather Leggings" material="leather" baseGold="10"/>
-        <baseItem id="chainLeggings" name="Chain Leggings" material="chain" baseGold="25"/>
-        <baseItem id="plateLeggings" name="Plate Leggings" material="plate" baseGold="40"/>
+        <baseItem id="clothTrousers" name="Cloth Trousers" material="cloth" baseGold="0.5" armorType="padded" armorCategory="light" acBase="11" dexCap="none" strengthRequirement="0" stealthDisadvantage="true" donTime="1 minute" doffTime="1 minute"/>
+        <baseItem id="leatherLeggings" name="Leather Leggings" material="leather" baseGold="10" armorType="leather" armorCategory="light" acBase="11" dexCap="none" strengthRequirement="0" stealthDisadvantage="false" donTime="1 minute" doffTime="1 minute"/>
+        <baseItem id="chainLeggings" name="Chain Leggings" material="chain" baseGold="25" armorType="chainShirt" armorCategory="medium" acBase="13" dexCap="+2" strengthRequirement="0" stealthDisadvantage="false" donTime="5 minutes" doffTime="1 minute"/>
+        <baseItem id="plateLeggings" name="Plate Leggings" material="plate" baseGold="40" armorType="plate" armorCategory="heavy" acBase="18" dexCap="0" strengthRequirement="15" stealthDisadvantage="true" donTime="10 minutes" doffTime="5 minutes"/>
       </slot>
 
       <slot id="belt" name="Belt">
-        <baseItem id="ropeBelt" name="Rope Belt" material="cloth" baseGold="0.1"/>
-        <baseItem id="leatherBelt" name="Leather Belt" material="leather" baseGold="1"/>
-        <baseItem id="reinforcedBelt" name="Reinforced Belt" material="leather" baseGold="3"/>
-        <baseItem id="platedWarBelt" name="Plated War Belt" material="plate" baseGold="10"/>
+        <baseItem id="ropeBelt" name="Rope Belt" material="cloth" baseGold="0.1" armorType="padded" armorCategory="light" acBase="11" dexCap="none" strengthRequirement="0" stealthDisadvantage="true" donTime="1 minute" doffTime="1 minute"/>
+        <baseItem id="leatherBelt" name="Leather Belt" material="leather" baseGold="1" armorType="leather" armorCategory="light" acBase="11" dexCap="none" strengthRequirement="0" stealthDisadvantage="false" donTime="1 minute" doffTime="1 minute"/>
+        <baseItem id="reinforcedBelt" name="Reinforced Belt" material="leather" baseGold="3" armorType="studdedLeather" armorCategory="light" acBase="12" dexCap="none" strengthRequirement="0" stealthDisadvantage="false" donTime="1 minute" doffTime="1 minute"/>
+        <baseItem id="platedWarBelt" name="Plated War Belt" material="plate" baseGold="10" armorType="plate" armorCategory="heavy" acBase="18" dexCap="0" strengthRequirement="15" stealthDisadvantage="true" donTime="10 minutes" doffTime="5 minutes"/>
       </slot>
 
       <slot id="gloves" name="Gloves">
-        <baseItem id="clothGloves" name="Cloth Gloves" material="cloth" baseGold="0.2"/>
-        <baseItem id="leatherGloves" name="Leather Gloves" material="leather" baseGold="2"/>
-        <baseItem id="chainGloves" name="Chain Gloves" material="chain" baseGold="10"/>
-        <baseItem id="gauntlets" name="Gauntlets" material="plate" baseGold="15"/>
+        <baseItem id="clothGloves" name="Cloth Gloves" material="cloth" baseGold="0.2" armorType="padded" armorCategory="light" acBase="11" dexCap="none" strengthRequirement="0" stealthDisadvantage="true" donTime="1 minute" doffTime="1 minute"/>
+        <baseItem id="leatherGloves" name="Leather Gloves" material="leather" baseGold="2" armorType="leather" armorCategory="light" acBase="11" dexCap="none" strengthRequirement="0" stealthDisadvantage="false" donTime="1 minute" doffTime="1 minute"/>
+        <baseItem id="chainGloves" name="Chain Gloves" material="chain" baseGold="10" armorType="chainShirt" armorCategory="medium" acBase="13" dexCap="+2" strengthRequirement="0" stealthDisadvantage="false" donTime="5 minutes" doffTime="1 minute"/>
+        <baseItem id="gauntlets" name="Gauntlets" material="plate" baseGold="15" armorType="plate" armorCategory="heavy" acBase="18" dexCap="0" strengthRequirement="15" stealthDisadvantage="true" donTime="10 minutes" doffTime="5 minutes"/>
       </slot>
 
       <slot id="bracers" name="Bracers">
-        <baseItem id="clothBracers" name="Cloth Bracers" material="cloth" baseGold="0.3"/>
-        <baseItem id="leatherBracers" name="Leather Bracers" material="leather" baseGold="3"/>
-        <baseItem id="chainBracers" name="Chain Bracers" material="chain" baseGold="12"/>
-        <baseItem id="plateBracers" name="Plate Bracers" material="plate" baseGold="18"/>
+        <baseItem id="clothBracers" name="Cloth Bracers" material="cloth" baseGold="0.3" armorType="padded" armorCategory="light" acBase="11" dexCap="none" strengthRequirement="0" stealthDisadvantage="true" donTime="1 minute" doffTime="1 minute"/>
+        <baseItem id="leatherBracers" name="Leather Bracers" material="leather" baseGold="3" armorType="leather" armorCategory="light" acBase="11" dexCap="none" strengthRequirement="0" stealthDisadvantage="false" donTime="1 minute" doffTime="1 minute"/>
+        <baseItem id="chainBracers" name="Chain Bracers" material="chain" baseGold="12" armorType="chainShirt" armorCategory="medium" acBase="13" dexCap="+2" strengthRequirement="0" stealthDisadvantage="false" donTime="5 minutes" doffTime="1 minute"/>
+        <baseItem id="plateBracers" name="Plate Bracers" material="plate" baseGold="18" armorType="plate" armorCategory="heavy" acBase="18" dexCap="0" strengthRequirement="15" stealthDisadvantage="true" donTime="10 minutes" doffTime="5 minutes"/>
       </slot>
 
       <slot id="headwear" name="Headwear">
-        <baseItem id="hood" name="Hood" material="cloth" baseGold="1"/>
-        <baseItem id="leatherCap" name="Leather Cap" material="leather" baseGold="5"/>
-        <baseItem id="chainCoif" name="Chain Coif" material="chain" baseGold="20"/>
-        <baseItem id="helmet" name="Helmet" material="plate" baseGold="10"/>
-        <baseItem id="greatHelm" name="Great Helm" material="plate" baseGold="30"/>
+        <baseItem id="hood" name="Hood" material="cloth" baseGold="1" armorType="padded" armorCategory="light" acBase="11" dexCap="none" strengthRequirement="0" stealthDisadvantage="true" donTime="1 minute" doffTime="1 minute"/>
+        <baseItem id="leatherCap" name="Leather Cap" material="leather" baseGold="5" armorType="leather" armorCategory="light" acBase="11" dexCap="none" strengthRequirement="0" stealthDisadvantage="false" donTime="1 minute" doffTime="1 minute"/>
+        <baseItem id="chainCoif" name="Chain Coif" material="chain" baseGold="20" armorType="chainShirt" armorCategory="medium" acBase="13" dexCap="+2" strengthRequirement="0" stealthDisadvantage="false" donTime="5 minutes" doffTime="1 minute"/>
+        <baseItem id="helmet" name="Helmet" material="plate" baseGold="10" armorType="plate" armorCategory="heavy" acBase="18" dexCap="0" strengthRequirement="15" stealthDisadvantage="true" donTime="10 minutes" doffTime="5 minutes"/>
+        <baseItem id="greatHelm" name="Great Helm" material="plate" baseGold="30" armorType="plate" armorCategory="heavy" acBase="18" dexCap="0" strengthRequirement="15" stealthDisadvantage="true" donTime="10 minutes" doffTime="5 minutes"/>
       </slot>
 
       <slot id="offhand" name="Shields">
-        <baseItem id="buckler" name="Buckler" material="wood" baseGold="10"/>
-        <baseItem id="roundshield" name="Round Shield" material="wood" baseGold="15"/>
-        <baseItem id="kiteshield" name="Kite Shield" material="wood" baseGold="20"/>
-        <baseItem id="towershield" name="Tower Shield" material="wood" baseGold="50"/>
+        <baseItem id="buckler" name="Buckler" material="wood" baseGold="10" armorType="shield" armorCategory="shield" acBase="2" dexCap="none" strengthRequirement="0" stealthDisadvantage="false" donTime="1 action" doffTime="1 action"/>
+        <baseItem id="roundshield" name="Round Shield" material="wood" baseGold="15" armorType="shield" armorCategory="shield" acBase="2" dexCap="none" strengthRequirement="0" stealthDisadvantage="false" donTime="1 action" doffTime="1 action"/>
+        <baseItem id="kiteshield" name="Kite Shield" material="wood" baseGold="20" armorType="shield" armorCategory="shield" acBase="2" dexCap="none" strengthRequirement="0" stealthDisadvantage="false" donTime="1 action" doffTime="1 action"/>
+        <baseItem id="towershield" name="Tower Shield" material="wood" baseGold="50" armorType="shield" armorCategory="shield" acBase="2" dexCap="none" strengthRequirement="0" stealthDisadvantage="false" donTime="1 action" doffTime="1 action"/>
       </slot>
 
       <!-- Apply tiers 0..3 to ALL armor-slot items -->

@@ -125,10 +125,32 @@ html, body, #root{
   grid-template-columns: 1fr minmax(var(--inv-col), var(--inv-col));
 }
 
+.mapMain{
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .mapCanvasWrap{
   min-width: 0;
   min-height: 0;
+  overflow: hidden;
+  flex: 1;
+  position: relative;
+}
+
+.mapPane{
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
   overflow: auto;
+}
+
+.mapPane.active{
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .mapDMWrap{
@@ -136,10 +158,17 @@ html, body, #root{
   overflow-x: hidden;
   overflow-y: auto;
   scrollbar-gutter: stable both-edges;
+  display: flex;
+  flex-direction: column;
 }
 
 .mapDMWrap *{
   max-width: 100%;
+}
+
+.mapRailContent{
+  flex: 1;
+  min-height: 0;
 }
 
 /* ✅ Player inventory dock */

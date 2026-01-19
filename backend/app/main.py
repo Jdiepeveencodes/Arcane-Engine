@@ -329,6 +329,23 @@ def _merge_dict(base: dict, patch: dict) -> dict:
     return out
 
 
+def _summarize_sheet_changes(before: dict, after: dict, patch: dict) -> list[str]:
+    if not patch:
+        return []
+    changes: list[str] = []
+    for key, new_value in patch.items():
+        old_value = before.get(key)
+        if old_value == new_value:
+            continue
+        if isinstance(new_value, (dict, list)):
+            changes.append(f"{key} updated")
+            continue
+        old_text = "—" if old_value in (None, "") else str(old_value)
+        new_text = "—" if new_value in (None, "") else str(new_value)
+        changes.append(f"{key}: {old_text} -> {new_text}")
+    return changes
+
+
 def ensure_room_loaded(room_id: str) -> Any | None:
     room = manager.get_room(room_id)
     if room:
@@ -748,12 +765,13 @@ def api_character_get(character_id: str):
 
 
 @app.patch("/api/characters/{character_id}")
-def api_character_update(character_id: str, req: CharacterUpdateReq):
+async def api_character_update(character_id: str, req: CharacterUpdateReq):
     record = db_get_character(character_id)
     if not record:
         raise HTTPException(status_code=404, detail="Character not found")
 
-    sheet = record.get("sheet") or {}
+    before_sheet = record.get("sheet") or {}
+    sheet = before_sheet
     if req.sheet is not None:
         if req.merge:
             sheet = _merge_dict(sheet, req.sheet)
@@ -776,6 +794,26 @@ def api_character_update(character_id: str, req: CharacterUpdateReq):
         room_id=room_id,
         owner_user_id=owner_user_id,
     )
+
+    if room_id and req.sheet:
+        changes = _summarize_sheet_changes(before_sheet or {}, sheet_data or {}, req.sheet)
+        if changes:
+            room = ensure_room_loaded(room_id)
+            if room:
+                summary = "; ".join(changes[:6])
+                if len(changes) > 6:
+                    summary += "; …"
+                msg = {
+                    "type": "chat.message",
+                    "ts": time.time(),
+                    "user_id": "system",
+                    "name": "System",
+                    "role": "system",
+                    "channel": "table",
+                    "text": f"{name} updated: {summary}",
+                }
+                room.chat_log.append(msg)
+                await manager.broadcast(room_id, msg)
 
     return {
         "character_id": character_id,
