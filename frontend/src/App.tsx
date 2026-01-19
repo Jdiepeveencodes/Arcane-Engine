@@ -116,7 +116,11 @@ export default function App() {
 
       <main className="layout2">
         <div className="leftCol">
-          <ScenePanel scene={room.scene ?? { title: "—", text: "—" }} members={room.members ?? []} />
+          <ScenePanel
+            scene={room.scene ?? { title: "—", text: "—" }}
+            members={room.members ?? []}
+            roomId={room.roomId}
+          />
 
           {isDM && (
             <>

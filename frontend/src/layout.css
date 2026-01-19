@@ -163,6 +163,10 @@ html, body, #root{
 .lootAdvanced > summary{ cursor:pointer; font-size:12px; opacity:0.85; user-select:none; }
 .lootAdvancedGrid{ margin-top:10px; display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
 .lootTags{ grid-column: 1 / span 2; }
+.lootCategoryGrid{ margin-top:12px; display:grid; gap:10px; }
+.lootCategoryRow{ display:grid; grid-template-columns: 90px repeat(3, minmax(0, 1fr)); gap:10px; align-items:end; }
+.lootCategoryTitle{ font-size:12px; font-weight:700; opacity:0.85; }
+.lootCategoryRow.disabled{ opacity:0.5; }
 .lootHint{ margin-top:8px; font-size:12px; opacity:0.7; }
 
 @media (max-width: 1200px){
@@ -187,5 +191,12 @@ html, body, #root{
   .mapShell.dmRail,
   .mapShell.noRail{
     grid-template-columns: 1fr;
+  }
+
+  .lootCategoryRow{
+    grid-template-columns: 1fr 1fr;
+  }
+  .lootCategoryTitle{
+    grid-column: 1 / -1;
   }
 }

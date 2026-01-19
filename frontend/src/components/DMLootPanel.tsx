@@ -25,6 +25,39 @@ const SLOT_OPTIONS = [
   { value: "ring", label: "Ring" },
 ];
 
+const BONUS_OPTIONS = [
+  { value: "", label: "None" },
+  { value: "1", label: "+1" },
+  { value: "2", label: "+2" },
+  { value: "3", label: "+3" },
+];
+
+const ELEMENTAL_OPTIONS = [
+  { value: "", label: "None" },
+  { value: "random", label: "Random (either)" },
+  { value: "acid", label: "Acid" },
+  { value: "cold", label: "Cold" },
+  { value: "fire", label: "Fire" },
+  { value: "lightning", label: "Lightning" },
+  { value: "poison", label: "Poison" },
+  { value: "thunder", label: "Thunder" },
+];
+
+const MAGIC_OPTIONS = [
+  { value: "", label: "None" },
+  { value: "random", label: "Random (either)" },
+  { value: "holy", label: "Holy" },
+  { value: "radiant", label: "Radiant" },
+  { value: "necrotic", label: "Necrotic" },
+  { value: "force", label: "Force" },
+  { value: "psychic", label: "Psychic" },
+];
+
+type CategoryKey = "weapons" | "armor" | "jewelry";
+type CategoryPropsState = { bonus: string; elemental: string; magical: string };
+
+const EMPTY_CATEGORY_PROPS: CategoryPropsState = { bonus: "", elemental: "", magical: "" };
+
 export default function DMLootPanel({ connected, isDM, members, lootStatus, onGenerateLoot }: Props) {
   if (!isDM) return null;
 
@@ -36,9 +69,7 @@ export default function DMLootPanel({ connected, isDM, members, lootStatus, onGe
 
   // Advanced
   const [tierMin, setTierMin] = useState<number>(0);
-  const [tierMax, setTierMax] = useState<number>(6);
-  const [tagsText, setTagsText] = useState<string>("");
-  const [addElemental, setAddElemental] = useState<boolean>(false);
+  const [tierMax, setTierMax] = useState<number>(3);
 
   // Top-row checks
   const [allowMagic, setAllowMagic] = useState<boolean>(true);
@@ -47,6 +78,11 @@ export default function DMLootPanel({ connected, isDM, members, lootStatus, onGe
   const [catJewelry, setCatJewelry] = useState(true);
 
   const [slotFilter, setSlotFilter] = useState<string>("");
+  const [categoryProps, setCategoryProps] = useState<Record<CategoryKey, CategoryPropsState>>({
+    weapons: { ...EMPTY_CATEGORY_PROPS },
+    armor: { ...EMPTY_CATEGORY_PROPS },
+    jewelry: { ...EMPTY_CATEGORY_PROPS },
+  });
 
   const canGenerate = connected;
 
@@ -66,15 +102,32 @@ export default function DMLootPanel({ connected, isDM, members, lootStatus, onGe
     if (catArmor) categories.push("armor");
     if (catJewelry) categories.push("jewelry");
 
-    const tags = tagsText
-      .split(",")
-      .map((t) => t.trim())
-      .filter(Boolean);
-
-    const min = Math.max(0, Math.min(tierMin, 6));
-    const max = Math.max(0, Math.min(tierMax, 6));
+    const min = Math.max(0, Math.min(tierMin, 3));
+    const max = Math.max(0, Math.min(tierMax, 3));
     const tierMinFixed = Math.min(min, max);
     const tierMaxFixed = Math.max(min, max);
+
+    const cleanPick = (value: string) => value.trim().toLowerCase();
+    const normalizeProps = (cat: CategoryKey, enabled: boolean) => {
+      if (!enabled) return undefined;
+      const raw = categoryProps[cat] || EMPTY_CATEGORY_PROPS;
+      const bonus = Number(raw.bonus);
+      const bonusValue = [1, 2, 3].includes(bonus) ? bonus : undefined;
+      const elemental = cleanPick(raw.elemental);
+      const magical = cleanPick(raw.magical);
+      if (!bonusValue && !elemental && !magical) return undefined;
+      return {
+        bonus: bonusValue,
+        elemental: elemental || undefined,
+        magical: magical || undefined,
+      };
+    };
+
+    const categoryPropsPayload: LootConfig["categoryProps"] = {
+      weapons: normalizeProps("weapons", catWeapons),
+      armor: normalizeProps("armor", catArmor),
+      jewelry: normalizeProps("jewelry", catJewelry),
+    };
 
     return {
       source,
@@ -82,11 +135,11 @@ export default function DMLootPanel({ connected, isDM, members, lootStatus, onGe
       tierMin: tierMinFixed,
       tierMax: tierMaxFixed,
       allowMagic,
-      addElemental,
       bagName: containerLabel(source),
       categories: categories.length ? categories : ["weapons", "armor", "jewelry"],
       slots: slotFilter ? [slotFilter] : [],
-      tags,
+      tags: [],
+      categoryProps: categoryPropsPayload,
     };
   }
 
@@ -183,15 +236,10 @@ export default function DMLootPanel({ connected, isDM, members, lootStatus, onGe
         <summary>Advanced</summary>
 
         <div className="lootAdvancedGrid">
-          <label className="lootCheck" style={{ gridColumn: "1 / -1" }}>
-            <input type="checkbox" checked={addElemental} onChange={(e) => setAddElemental(e.target.checked)} />
-            <span>Add elemental property</span>
-          </label>
-
           <label className="lootField">
             <span className="lootLabel">Tier min</span>
             <select value={tierMin} onChange={(e) => setTierMin(Number(e.target.value))}>
-              {Array.from({ length: 7 }, (_, i) => i).map((n) => (
+              {Array.from({ length: 4 }, (_, i) => i).map((n) => (
                 <option key={n} value={n}>
                   {n}
                 </option>
@@ -202,7 +250,7 @@ export default function DMLootPanel({ connected, isDM, members, lootStatus, onGe
           <label className="lootField">
             <span className="lootLabel">Tier max</span>
             <select value={tierMax} onChange={(e) => setTierMax(Number(e.target.value))}>
-              {Array.from({ length: 7 }, (_, i) => i).map((n) => (
+              {Array.from({ length: 4 }, (_, i) => i).map((n) => (
                 <option key={n} value={n}>
                   {n}
                 </option>
@@ -210,14 +258,80 @@ export default function DMLootPanel({ connected, isDM, members, lootStatus, onGe
             </select>
           </label>
 
-          <label className="lootField lootTags">
-            <span className="lootLabel">Tags (comma)</span>
-            <input
-              value={tagsText}
-              onChange={(e) => setTagsText(e.target.value)}
-              placeholder="undead, fire, holy…"
-            />
-          </label>
+        </div>
+
+        <div className="lootCategoryGrid">
+          {(
+            [
+              { key: "weapons", label: "Weapons", enabled: catWeapons },
+              { key: "armor", label: "Armor", enabled: catArmor },
+              { key: "jewelry", label: "Jewelry", enabled: catJewelry },
+            ] as Array<{ key: CategoryKey; label: string; enabled: boolean }>
+          ).map((cat) => {
+            const props = categoryProps[cat.key];
+            return (
+              <div key={cat.key} className={`lootCategoryRow ${cat.enabled ? "" : "disabled"}`}>
+                <div className="lootCategoryTitle">{cat.label}</div>
+                <label className="lootField">
+                  <span className="lootLabel">Bonus</span>
+                  <select
+                    value={props.bonus}
+                    onChange={(e) =>
+                      setCategoryProps((prev) => ({
+                        ...prev,
+                        [cat.key]: { ...prev[cat.key], bonus: e.target.value },
+                      }))
+                    }
+                    disabled={!cat.enabled}
+                  >
+                    {BONUS_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="lootField">
+                  <span className="lootLabel">Elemental</span>
+                  <select
+                    value={props.elemental}
+                    onChange={(e) =>
+                      setCategoryProps((prev) => ({
+                        ...prev,
+                        [cat.key]: { ...prev[cat.key], elemental: e.target.value },
+                      }))
+                    }
+                    disabled={!cat.enabled}
+                  >
+                    {ELEMENTAL_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="lootField">
+                  <span className="lootLabel">Magical</span>
+                  <select
+                    value={props.magical}
+                    onChange={(e) =>
+                      setCategoryProps((prev) => ({
+                        ...prev,
+                        [cat.key]: { ...prev[cat.key], magical: e.target.value },
+                      }))
+                    }
+                    disabled={!cat.enabled}
+                  >
+                    {MAGIC_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            );
+          })}
         </div>
       </details>
 

@@ -54,6 +54,7 @@ export type ItemDef = {
   category?: string;
   is_two_handed?: boolean;
   magicType?: string;
+  magicBonus?: number;
 };
 
 export type PlayerInventory = {
@@ -84,6 +85,12 @@ export type LootConfig = {
   categories: Array<"weapons" | "armor" | "jewelry">;
   slots: string[];
   tags: string[];
+  categoryProps?: Partial<
+    Record<
+      "weapons" | "armor" | "jewelry",
+      { bonus?: number; elemental?: string; magical?: string }
+    >
+  >;
 };
 
 export type LootSource = "mob" | "chest" | "boss" | "shop" | "custom";
@@ -183,7 +190,7 @@ export function useRoomSocket() {
     setConnected(false);
     setStatus("Connecting...");
 
-    const displayName = (name.trim() || "Player").slice(0, 24);
+    const displayName = name.trim() || "Player";
     const url = wsUrl(rid, displayName, role);
 
     const ws = new WebSocket(url);
@@ -348,13 +355,29 @@ export function useRoomSocket() {
   const generateLoot = useCallback((items: any[], bagName: string, bagType: "community" | "player" = "community") => send({ type: "loot.generate", items, bag_name: bagName, bag_type: bagType }), [send]);
   const dmGenerateLoot = useCallback(
     (targetUserId: string, config: LootConfig) => {
+      const categoryProps = config?.categoryProps;
+      const propsSummary = (() => {
+        if (!categoryProps) return "";
+        const parts: string[] = [];
+        for (const [key, value] of Object.entries(categoryProps)) {
+          if (!value) continue;
+          const segs: string[] = [];
+          if (value.bonus) segs.push(`+${value.bonus}`);
+          if (value.elemental) segs.push(value.elemental);
+          if (value.magical) segs.push(value.magical);
+          if (segs.length) parts.push(`${key}: ${segs.join(", ")}`);
+        }
+        return parts.length ? ` (${parts.join(" | ")})` : "";
+      })();
       const ok = send({
         type: "loot.generate",
         target_user_id: targetUserId,
         config,
+        categoryProps,
+        category_props: categoryProps,
         bag_name: config?.bagName || "",
       });
-      setLootStatus(ok ? "Requesting loot..." : "Not connected.");
+      setLootStatus(ok ? `Requesting loot...${propsSummary}` : "Not connected.");
       return ok;
     },
     [send]

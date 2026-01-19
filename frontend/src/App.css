@@ -319,3 +319,170 @@ button:disabled, input:disabled, select:disabled {
   font-size: 18px;
   margin-bottom: 8px;
 }
+
+/* Scene + members */
+.sceneTitle {
+  font-weight: 700;
+  margin-top: 6px;
+}
+
+.sceneText {
+  margin-top: 6px;
+  color: var(--muted);
+}
+
+.membersHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.membersHeader h2 {
+  margin: 0;
+}
+
+.membersRefresh {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.members {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 0;
+  display: grid;
+  gap: 8px;
+}
+
+.memberRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+}
+
+.memberPrimary {
+  display: grid;
+  gap: 2px;
+}
+
+.memberName {
+  font-weight: 600;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.memberChars {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.memberActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.memberRoleButton {
+  width: 100%;
+  text-align: left;
+  border-radius: 12px;
+  padding: 8px 6px;
+  display: grid;
+  gap: 2px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(0,0,0,0.2);
+  align-items: start;
+  overflow: visible;
+}
+
+.memberRole {
+  font-size: 12px;
+}
+
+.charSheet {
+  margin-top: 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 10px;
+  background: rgba(0,0,0,0.2);
+}
+
+.charSheetHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.charName {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.charMeta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.charSheetControls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.charEmpty {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.charGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.charLabel {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.charValue {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.charSection {
+  margin-top: 10px;
+}
+
+.charSectionTitle {
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.charList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.charPill {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(0,0,0,0.25);
+}
+
+.charError {
+  margin-top: 8px;
+  color: #ff7a7a;
+  font-size: 12px;
+}

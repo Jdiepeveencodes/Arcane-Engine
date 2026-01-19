@@ -4,7 +4,6 @@
   <!-- =========================================================
        QUALITY TIERS
        - Tier 0-3: NOT magical (no magical="true" attributes)
-       - Tier 4-6: magical
        - Mechanical effects remain the same
        - Value scaling added via valueMultiplier
        ========================================================= -->
@@ -33,24 +32,6 @@
       <jewelry bonus="+2"/>
     </tier>
 
-    <!-- Magical begins at tier 4 ONLY -->
-    <tier id="4" name="Enchanted (+1)" kind="magical" valueMultiplier="15.0">
-      <weapon attackBonus="+1" magical="true"/>
-      <armor acBonus="+1" magical="true"/>
-      <jewelry bonus="+1" magical="true"/>
-    </tier>
-
-    <tier id="5" name="Enchanted (+2)" kind="magical" valueMultiplier="50.0">
-      <weapon attackBonus="+2" magical="true"/>
-      <armor acBonus="+2" magical="true"/>
-      <jewelry bonus="+2" magical="true"/>
-    </tier>
-
-    <tier id="6" name="Enchanted (+3)" kind="magical" valueMultiplier="150.0">
-      <weapon attackBonus="+3" magical="true"/>
-      <armor acBonus="+3" magical="true"/>
-      <jewelry bonus="+3" magical="true"/>
-    </tier>
   </qualityTiers>
 
   <!-- =========================================================
@@ -59,7 +40,7 @@
        - Your generator can:
          1) pick a baseItem
          2) pick tier
-         3) apply descriptor (tier 0-3) or suffix +X (tier 4-6)
+         3) apply descriptor (tier 0-3)
          4) compute finalGold = round(baseGold * valueMultiplier)
        ========================================================= -->
   <variantRules>
@@ -183,8 +164,8 @@
         </group>
       </subCategory>
 
-      <!-- Apply tiers 0..6 to ALL weapons -->
-      <appliesQuality tierRefs="0,1,2,3,4,5,6" namingRuleRef="weaponNaming" pricingRuleRef="goldPricing"/>
+      <!-- Apply tiers 0..3 to ALL weapons -->
+      <appliesQuality tierRefs="0,1,2,3" namingRuleRef="weaponNaming" pricingRuleRef="goldPricing"/>
     </category>
 
     <!-- =========================
@@ -237,8 +218,15 @@
         <baseItem id="greatHelm" name="Great Helm" material="plate" baseGold="30"/>
       </slot>
 
-      <!-- Apply tiers 0..6 to ALL armor-slot items -->
-      <appliesQuality tierRefs="0,1,2,3,4,5,6" namingRuleRef="armorNaming" pricingRuleRef="goldPricing"/>
+      <slot id="offhand" name="Shields">
+        <baseItem id="buckler" name="Buckler" material="wood" baseGold="10"/>
+        <baseItem id="roundshield" name="Round Shield" material="wood" baseGold="15"/>
+        <baseItem id="kiteshield" name="Kite Shield" material="wood" baseGold="20"/>
+        <baseItem id="towershield" name="Tower Shield" material="wood" baseGold="50"/>
+      </slot>
+
+      <!-- Apply tiers 0..3 to ALL armor-slot items -->
+      <appliesQuality tierRefs="0,1,2,3" namingRuleRef="armorNaming" pricingRuleRef="goldPricing"/>
     </category>
 
     <!-- =========================
@@ -262,8 +250,8 @@
         <baseItem id="arcaneAmulet" name="Arcane Amulet" material="gemstone" baseGold="75"/>
       </slot>
 
-      <!-- Apply tiers 0..6 to ALL jewelry items -->
-      <appliesQuality tierRefs="0,1,2,3,4,5,6" namingRuleRef="jewelryNaming" pricingRuleRef="goldPricing"/>
+      <!-- Apply tiers 0..3 to ALL jewelry items -->
+      <appliesQuality tierRefs="0,1,2,3" namingRuleRef="jewelryNaming" pricingRuleRef="goldPricing"/>
     </category>
 
   </categories>

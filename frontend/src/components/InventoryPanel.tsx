@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useState } from "react";
 import "./InventoryPanel.css";
 import type { EquipSlot, Item, PlayerInventory } from "../hooks/useRoomSocket";
 import slotLayoutData from "../assets/inventory-layout.json";
+import { buildWeaponTooltipLines } from "../utils/weaponStats";
 
 type Props = {
   role: "dm" | "player";
@@ -83,40 +84,143 @@ function tierLabel(tier?: number) {
   return map[tier] || "Tier " + tier;
 }
 
-function propertyTags(item: Item) {
+function formatPropLabel(value: string) {
+  return value
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join("-");
+}
+
+function magicProps(item: Item) {
   const tags = (item.tags || []).map((t) => String(t).toLowerCase());
-  if (item.magicType) tags.push(String(item.magicType).toLowerCase());
-  const allowed = new Set([
-    "bludgeoning",
-    "piercing",
-    "slashing",
-    "acid",
-    "cold",
-    "fire",
-    "lightning",
-    "poison",
-    "thunder",
-    "radiant",
-    "necrotic",
-    "force",
-    "psychic",
-    "two-handed",
-  ]);
+  const magicType = (item.magicType || "").toString().trim().toLowerCase();
+  if (magicType) tags.push(magicType);
+  const out = new Set<string>();
+  for (const t of tags) {
+    if (ELEMENTAL_KEYS.has(t)) out.add(t);
+  }
+  if (magicType && !out.has(magicType)) out.add(magicType);
+  return Array.from(out);
+}
+
+function traitTags(item: Item) {
+  const tags = (item.tags || []).map((t) => String(t).toLowerCase());
+  const allowed = new Set(["two-handed"]);
   return tags.filter((t) => allowed.has(t));
 }
 
 function formatItemTooltip(item: Item) {
+  const weaponLines = buildWeaponTooltipLines(item);
+  if (weaponLines) return weaponLines;
   const parts = [item.name || "Item"];
   const slot = item.slot ? String(item.slot) : "bag";
   parts.push("Slot: " + slot);
   if (typeof item.tier === "number") {
     parts.push("Tier: " + tierLabel(item.tier));
   }
-  const props = propertyTags(item);
+  const bonusValue = Number(item.magicBonus);
+  if (Number.isFinite(bonusValue) && bonusValue > 0) {
+    parts.push(`Bonus: +${bonusValue}`);
+  }
+  const props = magicProps(item).map(formatPropLabel);
   if (props.length) {
-    parts.push("Props: " + props.join(", "));
+    parts.push(`${props.length > 1 ? "Properties" : "Property"}: ${props.join(", ")}`);
+  }
+  const traits = traitTags(item).map(formatPropLabel);
+  if (traits.length) {
+    parts.push(`Traits: ${traits.join(", ")}`);
   }
   return parts;
+}
+
+const ELEMENTAL_KEYS = new Set([
+  "acid",
+  "cold",
+  "fire",
+  "lightning",
+  "poison",
+  "thunder",
+  "holy",
+  "radiant",
+  "necrotic",
+  "force",
+  "psychic",
+]);
+
+const ASSET_VERSION = "2026-01-16d";
+
+function elementalKeys(item: Item) {
+  const magic = (item.magicType || "").toString().toLowerCase();
+  if (magic && ELEMENTAL_KEYS.has(magic)) return [magic];
+  const tags = (item.tags || []).map((t) => String(t).toLowerCase());
+  const first = tags.find((t) => ELEMENTAL_KEYS.has(t));
+  return first ? [first] : [];
+}
+
+function itemIconUrl(item: Item) {
+  const id = (item.id || "").trim();
+  if (!id) return "";
+  const iconId = id.toLowerCase();
+  const slot = (item.slot || "bag").toString().trim().toLowerCase();
+  const iconSlot = slot === "ring1" || slot === "ring2" ? "ring" : slot;
+  const category = (item.category || "").toString().trim().toLowerCase();
+  if (category) {
+    return `/static/items/${category}/${iconSlot}/${iconId}.png?v=${ASSET_VERSION}`;
+  }
+  if (iconSlot === "mainhand" || iconSlot === "offhand") {
+    return `/static/items/weapons/${iconSlot}/${iconId}.png?v=${ASSET_VERSION}`;
+  }
+  if (["head", "chest", "legs", "boots", "gloves", "belt", "bracers", "shoulders"].includes(iconSlot)) {
+    return `/static/items/armor/${iconSlot}/${iconId}.png?v=${ASSET_VERSION}`;
+  }
+  if (["ring", "necklace"].includes(iconSlot)) {
+    return `/static/items/jewelry/${iconSlot}/${iconId}.png?v=${ASSET_VERSION}`;
+  }
+  return `/static/items/misc/${iconSlot}/${iconId}.png?v=${ASSET_VERSION}`;
+}
+
+function markIconMissing(e: React.SyntheticEvent<HTMLImageElement>) {
+  const target = e.currentTarget;
+  target.style.display = "none";
+  const root = target.closest(".slotItem, .bagItem");
+  if (root) root.classList.add("noIcon");
+}
+
+function renderItemIcon(item: Item) {
+  const iconUrl = itemIconUrl(item);
+  const overlayKeys = elementalKeys(item);
+  const overlayUrls = overlayKeys.map((key) => `/static/items/Elemental/${key}.png?v=${ASSET_VERSION}`);
+  if (!iconUrl && overlayUrls.length === 0) return null;
+  const iconId = (item.id || "").toString().toLowerCase();
+  const isSpear = iconId.includes("spear");
+  const iconClassName = ["itemIcon", isSpear ? "itemIconSpear" : ""].filter(Boolean).join(" ");
+
+  return (
+    <div className="itemIconWrap">
+      {overlayUrls.map((url, idx) => (
+        <img
+          key={url}
+          className="itemElemental"
+          src={url}
+          alt=""
+          draggable={false}
+          style={overlayUrls.length > 1 ? { opacity: Math.max(0.35, 0.7 - idx * 0.15) } : undefined}
+          onError={(e) => {
+            e.currentTarget.style.display = "none";
+          }}
+        />
+      ))}
+      {iconUrl ? (
+        <img
+          className={iconClassName}
+          src={iconUrl}
+          alt=""
+          draggable={false}
+          onError={markIconMissing}
+        />
+      ) : null}
+    </div>
+  );
 }
 
 export default function InventoryPanel({
@@ -343,6 +447,7 @@ export default function InventoryPanel({
                           <div key={idx}>{line}</div>
                         ))}
                       </div>
+                      {renderItemIcon(it)}
                       <div className="itemName">{it.name}</div>
                       <div className="itemMeta muted">
                         {it.is_two_handed ? "2H • " : ""}
@@ -403,6 +508,7 @@ export default function InventoryPanel({
                           <div key={idx}>{line}</div>
                         ))}
                       </div>
+                      {renderItemIcon(it)}
                       <div className="bagItemName">{it.name}</div>
                       <div className="bagItemMeta muted">{it.slot}</div>
                     </div>
