@@ -23,6 +23,8 @@ from .rooms import manager, Room, ClientConn
 from .dice import roll_dice
 from .item_db import generate_loot
 from . import item_db
+from . import rules5e
+from . import rules5e_data
 from .ai import maybe_ai_response
 
 load_dotenv()
@@ -30,6 +32,15 @@ load_dotenv()
 app = FastAPI(title="Arcane Engine Backend")
 loot_logger = logging.getLogger("arcane.loot")
 LOOT_DEBUG_LOG_PATH = os.path.join(os.path.dirname(__file__), "loot-debug.log")
+
+def _truthy_env(name: str, default: str = "0") -> bool:
+    return os.getenv(name, default).strip().lower() in ("1", "true", "yes", "on")
+
+
+def _parse_rules_kinds() -> list[str]:
+    raw = os.getenv("ARCANE_RULES_SYNC_KINDS", "races,feats,skills,weapons")
+    return [k.strip().lower() for k in raw.split(",") if k.strip()]
+
 
 def _append_loot_debug(line: str) -> None:
     try:
@@ -127,6 +138,10 @@ class CharacterUpdateReq(BaseModel):
     merge: bool = True
 
 
+class RulesSyncReq(BaseModel):
+    kinds: Optional[list[str]] = None
+
+
 # ------------------------------------------------------------
 # SQLite persistence
 # ------------------------------------------------------------
@@ -190,6 +205,7 @@ def db_init():
 
 
 db_init()
+rules5e_data.seed_core_rules(db())
 
 
 def db_upsert_room(room: Any):
@@ -488,6 +504,22 @@ def debug_where():
     }
 
 
+@app.post("/api/rules/sync")
+def api_rules_sync(req: RulesSyncReq):
+    counts = rules5e_data.sync_open5e(db(), req.kinds)
+    return {"synced": counts}
+
+
+@app.get("/api/rules/status")
+def api_rules_status():
+    return rules5e_data.rules_status(db())
+
+
+@app.get("/api/rules/{kind}")
+def api_rules_list(kind: str, full: int | None = None, limit: int | None = None):
+    return rules5e_data.list_rules(db(), kind, full=bool(full), limit=limit)
+
+
 # ------------------------------------------------------------
 # Helpers
 # ------------------------------------------------------------
@@ -678,6 +710,44 @@ def _normalize_inventories(room: Room) -> None:
         for slot, item in list(equip.items()):
             if item:
                 _hydrate_item_fields(item)
+    try:
+        rules5e.apply_inventory_rules(room.room_id, inventories, db_list_characters(room.room_id), room.clients)
+    except Exception:
+        pass
+
+
+@app.on_event("startup")
+def _rules_sync_startup() -> None:
+    kinds = _parse_rules_kinds()
+    if not kinds:
+        return
+
+    try:
+        counts = rules5e_data.rules_counts(db())
+    except Exception:
+        counts = {}
+
+    missing = [k for k in kinds if counts.get(k, 0) == 0]
+    present = [k for k in kinds if counts.get(k, 0) > 0]
+    if missing:
+        try:
+            result = rules5e_data.sync_open5e(db(), kinds)
+            _append_loot_debug(f"[rules.sync] bootstrap_all {result}")
+        except Exception as exc:
+            _append_loot_debug(f"[rules.sync] bootstrap failed: {exc}")
+        else:
+            try:
+                counts = rules5e_data.rules_counts(db())
+                _append_loot_debug(f"[rules.sync] counts {counts}")
+            except Exception:
+                pass
+
+    if _truthy_env("ARCANE_RULES_SYNC_ON_STARTUP", "1") and present:
+        try:
+            result = rules5e_data.sync_open5e(db(), present)
+            _append_loot_debug(f"[rules.sync] update {result}")
+        except Exception as exc:
+            _append_loot_debug(f"[rules.sync] update failed: {exc}")
 
 
 async def broadcast_loot_snapshot(room: Room) -> None:

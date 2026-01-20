@@ -4,6 +4,7 @@ const BUILD_STAMP = "build: 2026-01-16e";
 
 type Props = {
   status: string;
+  rulesStatus?: string;
 
   roomName: string;
   setRoomName: (v: string) => void;
@@ -37,6 +38,7 @@ export default function TopBar({
   connected,
   onJoin,
   onDisconnect,
+  rulesStatus,
 }: Props) {
   return (
     <header className="topbar panel" style={{ marginBottom: 12 }}>
@@ -83,6 +85,7 @@ export default function TopBar({
 
       <div style={{ marginLeft: "auto", fontSize: 12, opacity: 0.8, whiteSpace: "nowrap" }}>
         <span>{status}</span>
+        {rulesStatus ? <span style={{ marginLeft: 8, opacity: 0.6 }}>{rulesStatus}</span> : null}
         <span style={{ marginLeft: 8, opacity: 0.6 }}>{BUILD_STAMP}</span>
       </div>
     </header>

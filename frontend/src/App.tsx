@@ -31,6 +31,7 @@ export default function App() {
   const [diceMod, setDiceMod] = useState("0");
   const [dmPlayerView, setDmPlayerView] = useState(false);
   const [mapTab, setMapTab] = useState<"map" | "sheet" | "sheet2" | "spells">("map");
+  const [rulesStatus, setRulesStatus] = useState("rules: --");
 
   const pendingBatchRef = useRef<{ active: boolean; expectedResults: number }>({
     active: false,
@@ -59,6 +60,42 @@ export default function App() {
     pending.expectedResults = 0;
     room.addLocalSystem(`TOTAL → ${sum}`);
   }, [room.chatLog, room]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadRulesStatus = async () => {
+      try {
+        const res = await fetch("/api/rules/status");
+        if (!res.ok) throw new Error("rules status failed");
+        const data = await res.json();
+        const counts = data?.counts || {};
+        const lastSync = data?.last_sync || {};
+        const races = Number(counts.races || 0);
+        const feats = Number(counts.feats || 0);
+        const skills = Number(counts.skills || 0);
+        const attacks = Number(counts.attacks || 0);
+        const syncTimes = Object.values(lastSync)
+          .map((v: any) => (typeof v === "number" ? v : null))
+          .filter((v): v is number => typeof v === "number");
+        const latest = syncTimes.length ? Math.max(...syncTimes) : null;
+        const syncLabel = latest
+          ? new Date(latest * 1000).toISOString().replace("T", " ").slice(0, 16) + "Z"
+          : "--";
+        const label = `rules: r${races} f${feats} s${skills} a${attacks} | sync: ${syncLabel}`;
+        if (mounted) setRulesStatus(label);
+      } catch {
+        if (mounted) setRulesStatus("rules: n/a");
+      }
+    };
+
+    loadRulesStatus();
+    const intervalId = window.setInterval(loadRulesStatus, 60000);
+    return () => {
+      mounted = false;
+      window.clearInterval(intervalId);
+    };
+  }, []);
 
   async function createRoom() {
     const res = await fetch("/api/rooms", {
@@ -102,6 +139,7 @@ export default function App() {
     <>
       <TopBar
         status={room.status}
+        rulesStatus={rulesStatus}
         roomName={roomName}
         setRoomName={setRoomName}
         onCreateRoom={createRoom}
