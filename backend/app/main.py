@@ -26,6 +26,7 @@ from . import item_db
 from . import rules5e
 from . import rules5e_data
 from .ai import maybe_ai_response
+from .message_handlers import HANDLERS
 
 load_dotenv()
 
@@ -52,6 +53,25 @@ def _append_loot_debug(line: str) -> None:
 
 @app.on_event("startup")
 def _loot_debug_startup() -> None:
+    from . import message_handlers
+    
+    # Register utility functions with message_handlers module
+    message_handlers.register_functions(
+        db_append_chat_log=db_append_chat_log,
+        db_upsert_room=db_upsert_room,
+        clamp_int=clamp_int,
+        normalize_inventories=_normalize_inventories,
+        db_save_inventories=db_save_inventories,
+        db_save_loot_bags=db_save_loot_bags,
+        merge_category_props=_merge_category_props,
+        apply_category_props_to_items=_apply_category_props_to_items,
+        coerce_category_props=_coerce_category_props,
+        broadcast_loot_snapshot=broadcast_loot_snapshot,
+        filter_loot_bags=filter_loot_bags,
+        append_loot_debug=_append_loot_debug,
+        loot_logger=loot_logger,
+    )
+    
     try:
         line = f"[loot.debug] startup {time.time()}"
         _append_loot_debug(line)
@@ -201,6 +221,38 @@ def db_init():
         )
         """
     )
+    c.execute(
+        """
+        CREATE TABLE IF NOT EXISTS chat_log (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          room_id TEXT,
+          ts REAL,
+          type TEXT,
+          user_id TEXT,
+          name TEXT,
+          role TEXT,
+          channel TEXT,
+          text TEXT,
+          expr TEXT
+        )
+        """
+    )
+    c.execute(
+        """
+        CREATE TABLE IF NOT EXISTS loot_bags (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          room_id TEXT,
+          bag_id TEXT,
+          name TEXT,
+          items TEXT,
+          created_by TEXT,
+          visible_to_players INTEGER,
+          created_at REAL,
+          updated_at REAL,
+          UNIQUE(room_id, bag_id)
+        )
+        """
+    )
     db().commit()
 
 
@@ -254,6 +306,130 @@ def db_load_room(room_id: str) -> Any | None:
     room.grid = {"cols": row["grid_cols"] or 50, "rows": row["grid_rows"] or 50, "cell": row["grid_cell"] or 20}
     room.map_image_url = row["map_image_url"] or ""
     return room
+
+
+def db_load_inventories(room_id: str) -> dict:
+    """Load all player inventories for a room from database."""
+    c = db().cursor()
+    rows = c.execute("SELECT user_id, json FROM inventory WHERE room_id=?", (room_id,)).fetchall()
+    inventories = {}
+    for row in rows:
+        try:
+            inventories[row["user_id"]] = json.loads(row["json"])
+        except (json.JSONDecodeError, TypeError):
+            inventories[row["user_id"]] = {"bag": [], "equipment": {}}
+    return inventories
+
+
+def db_save_inventories(room_id: str, inventories: dict):
+    """Save all inventories for a room to database."""
+    c = db().cursor()
+    now = time.time()
+    for user_id, inventory in inventories.items():
+        c.execute(
+            """
+            INSERT INTO inventory (room_id, user_id, json, updated_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(room_id, user_id) DO UPDATE SET
+              json=excluded.json,
+              updated_at=excluded.updated_at
+            """,
+            (room_id, user_id, json.dumps(inventory), now)
+        )
+    db().commit()
+
+
+def db_load_loot_bags(room_id: str) -> dict:
+    """Load all loot bags for a room from database."""
+    c = db().cursor()
+    rows = c.execute("SELECT bag_id, name, items, created_by, visible_to_players FROM loot_bags WHERE room_id=?", (room_id,)).fetchall()
+    loot_bags = {}
+    for row in rows:
+        try:
+            items = json.loads(row["items"]) if row["items"] else []
+        except (json.JSONDecodeError, TypeError):
+            items = []
+        loot_bags[row["bag_id"]] = {
+            "name": row["name"],
+            "items": items,
+            "createdBy": row["created_by"],
+            "visibleToPlayers": bool(row["visible_to_players"])
+        }
+    return loot_bags
+
+
+def db_save_loot_bags(room_id: str, loot_bags: dict):
+    """Save all loot bags for a room to database."""
+    c = db().cursor()
+    now = time.time()
+    for bag_id, bag_data in loot_bags.items():
+        c.execute(
+            """
+            INSERT INTO loot_bags (room_id, bag_id, name, items, created_by, visible_to_players, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(room_id, bag_id) DO UPDATE SET
+              name=excluded.name,
+              items=excluded.items,
+              visible_to_players=excluded.visible_to_players,
+              updated_at=excluded.updated_at
+            """,
+            (
+                room_id,
+                bag_id,
+                bag_data.get("name", ""),
+                json.dumps(bag_data.get("items", [])),
+                bag_data.get("createdBy", ""),
+                1 if bag_data.get("visibleToPlayers", False) else 0,
+                now,
+                now
+            )
+        )
+    db().commit()
+
+
+def db_load_chat_log(room_id: str, limit: int = 100) -> list:
+    """Load recent chat messages for a room from database."""
+    c = db().cursor()
+    rows = c.execute(
+        "SELECT ts, type, user_id, name, role, channel, text, expr FROM chat_log WHERE room_id=? ORDER BY ts DESC LIMIT ?",
+        (room_id, limit)
+    ).fetchall()
+    messages = []
+    for row in rows:
+        messages.append({
+            "ts": row["ts"],
+            "type": row["type"],
+            "userId": row["user_id"],
+            "name": row["name"],
+            "role": row["role"],
+            "channel": row["channel"],
+            "text": row["text"],
+            "expr": row["expr"]
+        })
+    return list(reversed(messages))  # Return oldest first
+
+
+def db_append_chat_log(room_id: str, message: dict):
+    """Append a single message to the chat log."""
+    c = db().cursor()
+    c.execute(
+        """
+        INSERT INTO chat_log (room_id, ts, type, user_id, name, role, channel, text, expr)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            room_id,
+            message.get("ts", time.time()),
+            message.get("type", ""),
+            message.get("userId", ""),
+            message.get("name", ""),
+            message.get("role", ""),
+            message.get("channel", ""),
+            message.get("text", ""),
+            message.get("expr", "")
+        )
+    )
+    db().commit()
 
 
 def db_upsert_character(
@@ -1050,6 +1226,14 @@ async def ws_room(websocket: WebSocket, room_id: str, name: str, role: str):
         grid = getattr(room, "grid", {"cols": 50, "rows": 50, "cell": 20})
         map_url = getattr(room, "map_image_url", "") or ""
         tokens = getattr(room, "tokens", [])
+        
+        # Load persisted data from database on first player join
+        if not getattr(room, "_db_loaded", False):
+            room.inventories = db_load_inventories(room_id)
+            room.loot_bags = db_load_loot_bags(room_id)
+            room.chat_log = db_load_chat_log(room_id, limit=100)
+            room._db_loaded = True
+        
         _normalize_inventories(room)
         inventories = getattr(room, "inventories", {})
         for bag_id, bag in list(getattr(room, "loot_bags", {}).items()):
@@ -1105,6 +1289,8 @@ async def ws_room(websocket: WebSocket, room_id: str, name: str, role: str):
         while True:
             data = await websocket.receive_json()
             msg_type = (data.get("type") or "").strip()
+            
+            # Debug logging for loot messages
             if msg_type.startswith("loot."):
                 payload = {"room": room_id, "user_id": user_id, "role": role, "type": msg_type, "keys": list(data.keys())}
                 line = f"[loot.ws] {json.dumps(payload, default=str)}"
@@ -1113,542 +1299,20 @@ async def ws_room(websocket: WebSocket, room_id: str, name: str, role: str):
                     print(line, flush=True)
                 except Exception:
                     pass
-
-            if msg_type == "chat.send":
-                text = (data.get("text") or "").strip()
-                if not text:
-                    continue
-
-                channel = (data.get("channel") or "table").strip().lower()
-                if channel not in ("table", "narration"):
-                    channel = "table"
-                if role != "dm" and channel != "table":
-                    await websocket.send_json({"type": "error", "message": "Players can only post to Table Chat."})
-                    continue
-
-                entry = {
-                    "type": "chat.message",
-                    "ts": time.time(),
-                    "user_id": user_id,
-                    "name": name,
-                    "role": role,
-                    "channel": channel,
-                    "text": text,
-                }
-                await manager.broadcast(room_id, entry)
-
-                if role == "player" and getattr(room, "ai_mode", "auto") in ("auto", "assist"):
-                    maybe = maybe_ai_response(room_id=room_id, text=text)
-                    if maybe:
-                        await manager.broadcast(
-                            room_id,
-                            {
-                                "type": "chat.message",
-                                "ts": time.time(),
-                                "user_id": "ai",
-                                "name": "Arcane",
-                                "role": "dm",
-                                "channel": "narration",
-                                "text": maybe,
-                            },
-                        )
-                continue
-
-            if msg_type == "scene.update":
-                if role != "dm":
-                    await websocket.send_json({"type": "error", "message": "DM only."})
-                    continue
-                title = (data.get("title") or "")[:60]
-                text = (data.get("text") or "")[:2400]
-                room.scene = {"title": title, "text": text}
-                db_upsert_room(room)
-                await manager.broadcast(room.room_id, {"type": "scene.snapshot", "scene": room.scene})
-                continue
-
-            if msg_type == "dice.roll":
-                expr = (data.get("expr") or "").strip()
-                if not expr:
-                    continue
-                result = roll_dice(expr)
-                await manager.broadcast(
-                    room_id,
-                    {"type": "dice.result", "user_id": user_id, "name": name, "role": role, "expr": expr, **result},
-                )
-                continue
-
-            if msg_type in ("grid.set", "grid.update"):
-                if role != "dm":
-                    await websocket.send_json({"type": "error", "message": "DM only."})
-                    continue
-                room.grid["cols"] = clamp_int(data.get("cols"), 1, 50, room.grid["cols"])
-                room.grid["rows"] = clamp_int(data.get("rows"), 1, 50, room.grid["rows"])
-                room.grid["cell"] = clamp_int(data.get("cell"), 8, 128, room.grid["cell"])
-                db_upsert_room(room)
-                await manager.broadcast(
-                    room.room_id,
-                    {
-                        "type": "map.snapshot",
-                        "grid": room.grid,
-                        "map_image_url": getattr(room, "map_image_url", ""),
-                        "tokens": getattr(room, "tokens", []),
-                        "lighting": getattr(room, "lighting", {"fog_enabled": False, "ambient_radius": 0, "darkness": False}),
-                    },
-                )
-                continue
-
-            if msg_type in ("map.set_url", "map.set"):
-                if role != "dm":
-                    await websocket.send_json({"type": "error", "message": "DM only."})
-                    continue
-                url = (data.get("url") or "").strip()
-                room.map_image_url = url
-                db_upsert_room(room)
-                await manager.broadcast(
-                    room.room_id,
-                    {
-                        "type": "map.snapshot",
-                        "grid": room.grid,
-                        "map_image_url": getattr(room, "map_image_url", ""),
-                        "tokens": getattr(room, "tokens", []),
-                        "lighting": getattr(room, "lighting", {"fog_enabled": False, "ambient_radius": 0, "darkness": False}),
-                    },
-                )
-                continue
-
-            if msg_type == "map.lighting.set":
-                if role != "dm":
-                    await websocket.send_json({"type": "error", "message": "DM only."})
-                    continue
-                lighting = data.get("lighting") or {}
-                if not isinstance(lighting, dict):
-                    continue
-                room.lighting["fog_enabled"] = bool(lighting.get("fog_enabled", room.lighting.get("fog_enabled", False)))
-                room.lighting["darkness"] = bool(lighting.get("darkness", room.lighting.get("darkness", False)))
-                room.lighting["ambient_radius"] = clamp_int(
-                    lighting.get("ambient_radius"),
-                    0,
-                    50,
-                    room.lighting.get("ambient_radius", 0),
-                )
-                await manager.broadcast(
-                    room.room_id,
-                    {
-                        "type": "map.snapshot",
-                        "grid": room.grid,
-                        "map_image_url": getattr(room, "map_image_url", ""),
-                        "tokens": getattr(room, "tokens", []),
-                        "lighting": getattr(room, "lighting", {"fog_enabled": False, "ambient_radius": 0, "darkness": False}),
-                    },
-                )
-                continue
             
-            if msg_type == "token.add":
-                if role != "dm":
-                    await websocket.send_json({"type": "error", "message": "DM only."})
-                    continue
-                token = data.get("token") or {}
-                kind = (token.get("kind") or "npc").strip().lower()
-                if kind not in ("player", "npc", "object"):
-                    kind = "npc"
-                max_x = max(0, room.grid.get("cols", 1) - 1)
-                max_y = max(0, room.grid.get("rows", 1) - 1)
-                new_token = {
-                    "id": str(uuid.uuid4())[:8],
-                    "label": str(token.get("label") or "Token")[:16],
-                    "kind": kind,
-                    "x": clamp_int(token.get("x"), 0, max_x, 0),
-                    "y": clamp_int(token.get("y"), 0, max_y, 0),
-                    "size": clamp_int(token.get("size"), 1, 6, 1),
-                    "owner_user_id": token.get("owner_user_id") or None,
-                }
-                if "darkvision" in token:
-                    new_token["darkvision"] = bool(token.get("darkvision"))
-                for key in ("color", "hp", "ac", "initiative", "vision_radius"):
-                    if key in token:
-                        try:
-                            new_token[key] = int(token.get(key))
-                        except Exception:
-                            new_token[key] = None
-                room.tokens.append(new_token)
-                await manager.broadcast(room_id, {"type": "token.added", "token": new_token})
-                continue
-
-            if msg_type == "token.move":
-                token_id = (data.get("token_id") or "").strip()
-                if not token_id:
-                    continue
-                tok = next((t for t in room.tokens if t.get("id") == token_id), None)
-                if not tok:
-                    continue
-                if role != "dm" and (tok.get("owner_user_id") or "") != user_id:
-                    await websocket.send_json({"type": "error", "message": "Not allowed to move this token."})
-                    continue
-                max_x = max(0, room.grid.get("cols", 1) - 1)
-                max_y = max(0, room.grid.get("rows", 1) - 1)
-                tok["x"] = clamp_int(data.get("x"), 0, max_x, tok.get("x", 0))
-                tok["y"] = clamp_int(data.get("y"), 0, max_y, tok.get("y", 0))
-                await manager.broadcast(room_id, {"type": "token.moved", "token_id": token_id, "x": tok["x"], "y": tok["y"]})
-                continue
-
-            if msg_type == "token.update":
-                if role != "dm":
-                    await websocket.send_json({"type": "error", "message": "DM only."})
-                    continue
-                token_id = (data.get("token_id") or "").strip()
-                patch = data.get("patch") or {}
-                if not token_id:
-                    continue
-                tok = next((t for t in room.tokens if t.get("id") == token_id), None)
-                if not tok:
-                    continue
-                if "label" in patch:
-                    tok["label"] = str(patch.get("label") or "")[:16]
-                if "kind" in patch:
-                    kind = (patch.get("kind") or "").strip().lower()
-                    if kind in ("player", "npc", "object"):
-                        tok["kind"] = kind
-                if "owner_user_id" in patch:
-                    tok["owner_user_id"] = patch.get("owner_user_id") or None
-                if "size" in patch:
-                    tok["size"] = clamp_int(patch.get("size"), 1, 6, tok.get("size", 1))
-                if "darkvision" in patch:
-                    tok["darkvision"] = bool(patch.get("darkvision"))
-                for key in ("color", "hp", "ac", "initiative", "vision_radius"):
-                    if key in patch:
-                        try:
-                            tok[key] = int(patch.get(key))
-                        except Exception:
-                            tok[key] = None
-                await manager.broadcast(room_id, {"type": "token.updated", "token": tok})
-                continue
-
-            if msg_type == "token.remove":
-                if role != "dm":
-                    await websocket.send_json({"type": "error", "message": "DM only."})
-                    continue
-                token_id = (data.get("token_id") or "").strip()
-                if not token_id:
-                    continue
-                before = len(room.tokens)
-                room.tokens = [t for t in room.tokens if t.get("id") != token_id]
-                if len(room.tokens) != before:
-                    await manager.broadcast(room_id, {"type": "token.removed", "token_id": token_id})
-                continue
-
-            if msg_type == "inventory.add":
-                item_data = data.get("item") or {}
-                itemId = item_data.get("id") or (data.get("itemId") or "").strip()
-                if not itemId:
-                    continue
-                
-                # Initialize inventory if needed
-                if user_id not in room.inventories:
-                    room.inventories[user_id] = {
-                        "user_id": user_id,
-                        "bag": [],
-                        "equipment": {},
-                    }
-                
-                inv = room.inventories[user_id]
-                # Add item to bag - preserve item data or create default
-                item = {
-                    "id": itemId,
-                    "name": item_data.get("name", f"Item {itemId[:4]}"),
-                    "slot": item_data.get("slot", "bag"),
-                }
-                if "is_two_handed" in item_data:
-                    item["is_two_handed"] = item_data["is_two_handed"]
-                inv["bag"].append(item)
-                _normalize_inventories(room)
-                await manager.broadcast(room_id, {"type": "inventory.snapshot", "inventories": room.inventories})
-                continue
-
-            if msg_type == "inventory.equip":
-                itemId = (data.get("itemId") or "").strip()
-                slot = (data.get("slot") or "").strip()
-                if not itemId or not slot:
-                    continue
-                
-                # Initialize inventory if needed
-                if user_id not in room.inventories:
-                    room.inventories[user_id] = {
-                        "user_id": user_id,
-                        "bag": [],
-                        "equipment": {},
-                    }
-                
-                inv = room.inventories[user_id]
-                
-                # Find item in bag
-                item_idx = None
-                for idx, item in enumerate(inv["bag"]):
-                    if item.get("id") == itemId:
-                        item_idx = idx
-                        break
-                
-                if item_idx is not None:
-                    item = inv["bag"].pop(item_idx)
-                    is_two_handed = item.get("is_two_handed", False)
-                    
-                    # Handle slot conflicts
-                    if is_two_handed:
-                        # If equipping 2-handed, unequip any 1-handed items from mainhand/offhand
-                        for hand_slot in ["mainhand", "offhand"]:
-                            if hand_slot in inv["equipment"]:
-                                unequipped = inv["equipment"].pop(hand_slot)
-                                inv["bag"].append(unequipped)
-                    else:
-                        # If equipping 1-handed to mainhand or offhand
-                        if slot in ["mainhand", "offhand"]:
-                            # Check if a 2-handed item is currently equipped
-                            for hand_slot in ["mainhand", "offhand"]:
-                                if hand_slot in inv["equipment"]:
-                                    equipped_item = inv["equipment"][hand_slot]
-                                    if equipped_item.get("is_two_handed", False):
-                                        # Unequip the 2-handed item to bag
-                                        unequipped = inv["equipment"].pop(hand_slot)
-                                        inv["bag"].append(unequipped)
-                    
-                    # Unequip any existing item in the target slot and move to bag
-                    if slot in inv["equipment"]:
-                        unequipped = inv["equipment"].pop(slot)
-                        inv["bag"].append(unequipped)
-                    
-                    # Equip the new item
-                    inv["equipment"][slot] = item
-                _normalize_inventories(room)
-                await manager.broadcast(room_id, {"type": "inventory.snapshot", "inventories": room.inventories})
-                continue
-
-            if msg_type == "inventory.unequip":
-                slot = (data.get("slot") or "").strip()
-                if not slot:
-                    continue
-                
-                # Initialize inventory if needed
-                if user_id not in room.inventories:
-                    room.inventories[user_id] = {
-                        "user_id": user_id,
-                        "bag": [],
-                        "equipment": {},
-                    }
-                
-                inv = room.inventories[user_id]
-                
-                # Move item from equipment to bag
-                if slot in inv["equipment"]:
-                    item = inv["equipment"].pop(slot)
-                    inv["bag"].append(item)
-                _normalize_inventories(room)
-                await manager.broadcast(room_id, {"type": "inventory.snapshot", "inventories": room.inventories})
-                continue
-
-            if msg_type == "inventory.drop":
-                itemId = (data.get("itemId") or "").strip()
-                if not itemId:
-                    continue
-                
-                # Initialize inventory if needed
-                if user_id not in room.inventories:
-                    room.inventories[user_id] = {
-                        "user_id": user_id,
-                        "bag": [],
-                        "equipment": {},
-                    }
-                
-                inv = room.inventories[user_id]
-                
-                # Remove item from bag
-                inv["bag"] = [item for item in inv["bag"] if item.get("id") != itemId]
-                _normalize_inventories(room)
-                await manager.broadcast(room_id, {"type": "inventory.snapshot", "inventories": room.inventories})
-                continue
-
-            if msg_type == "loot.generate":
-                if role != "dm":
-                    await websocket.send_json({"type": "error", "message": "DM only."})
-                    continue
-                # Generate loot into a new loot bag
-                # data: { "items": [...], "config": {...}, "bag_type": "community" | "player", "bag_name": "...", "target_user_id": "..." }
-                cfg = data.get("config") or {}
-                if not isinstance(cfg, dict):
-                    cfg = {}
-                cfg = _merge_category_props(cfg, data)
-                items = data.get("items") or []
-                if not items:
-                    items, err = generate_loot(cfg)
-                    if err:
-                        await websocket.send_json({"type": "error", "message": err})
-                        continue
-                _apply_category_props_to_items(items, cfg)
-
-                bag_type = (data.get("bag_type") or "").strip().lower()
-                target_user_id = (data.get("target_user_id") or "").strip()
-                if target_user_id:
-                    bag_type = "player"
-                if bag_type not in ("community", "player"):
-                    bag_type = "community"
-
-                bag_name = (data.get("bag_name") or "").strip()
-                if not bag_name:
-                    bag_name = (cfg.get("bagName") or "").strip()
-                if not bag_name:
-                    if target_user_id:
-                        target_name = ""
-                        target_conn = room.clients.get(target_user_id)
-                        if target_conn:
-                            target_name = target_conn.name
-                        bag_name = f"Loot for {target_name or target_user_id}"
-                    else:
-                        bag_name = f"Loot Bag {len(room.loot_bags)+1}"
-                
-                if not items:
-                    continue
-
-                bag_id = str(uuid.uuid4())[:8]
-                debug_props = None
-                for key in ("categoryProps", "category_props"):
-                    debug_props = _coerce_category_props(data.get(key))
-                    if debug_props is not None:
-                        break
-                if debug_props is None:
-                    debug_props = _coerce_category_props(cfg.get("categoryProps"))
-                room.loot_bags[bag_id] = {
-                    "bag_id": bag_id,
-                    "name": bag_name,
-                    "type": bag_type,
-                    "items": items,
-                    "created_at": time.time(),
-                    "created_by": user_id,
-                    "target_user_id": target_user_id or None,
-                    "visible_to_players": True,
-                    "_config": cfg,
-                    "debug_config": {"categoryProps": debug_props, "configKeys": list(cfg.keys())},
-                }
-
-                sample_item = items[0] if items else {}
-                magic_count = sum(1 for it in items if (it.get("magicType") or it.get("magicBonus")))
-                bonus_count = sum(1 for it in items if isinstance(it.get("magicBonus"), (int, float)))
-                debug_payload = {
-                    "room": room_id,
-                    "bag_id": bag_id,
-                    "user_id": user_id,
-                    "cfg_keys": list(cfg.keys()),
-                    "categoryProps": debug_props,
-                    "magic_count": magic_count,
-                    "bonus_count": bonus_count,
-                    "sample_item": {
-                        "id": sample_item.get("id"),
-                        "magicType": sample_item.get("magicType"),
-                        "magicBonus": sample_item.get("magicBonus"),
-                        "tags": sample_item.get("tags"),
-                        "category": sample_item.get("category"),
-                    },
-                }
-                debug_line = f"[loot.generate] {json.dumps(debug_payload, default=str)}"
+            # Dispatch to handler if one exists
+            if msg_type in HANDLERS:
                 try:
-                    loot_logger.info(debug_line)
-                except Exception:
-                    pass
-                try:
-                    print(debug_line, flush=True)
-                except Exception:
-                    pass
-                try:
-                    sys.stderr.write(debug_line + "\n")
-                    sys.stderr.flush()
-                except Exception:
-                    pass
-                _append_loot_debug(debug_line)
-                
-                await broadcast_loot_snapshot(room)
-                continue
-
-            if msg_type == "loot.distribute":
-                # Distribute item from loot bag to player inventory
-                # data: { "bag_id": "...", "item_id": "...", "target_user_id": "..." }
-                bag_id = (data.get("bag_id") or "").strip()
-                item_id = (data.get("item_id") or "").strip()
-                target_user_id = (data.get("target_user_id") or "").strip()
-                
-                if not bag_id or not item_id or not target_user_id:
-                    continue
-                
-                if bag_id not in room.loot_bags:
-                    continue
-                
-                # Initialize target inventory if needed
-                if target_user_id not in room.inventories:
-                    room.inventories[target_user_id] = {
-                        "user_id": target_user_id,
-                        "bag": [],
-                        "equipment": {},
-                    }
-                
-                # Find and remove item from loot bag
-                loot_bag = room.loot_bags[bag_id]
-                cfg = loot_bag.get("_config") or loot_bag.get("config") or {}
-                cfg = _merge_category_props(cfg)
-                _apply_category_props_to_items(loot_bag.get("items") or [], cfg)
-                item_idx = None
-                for idx, item in enumerate(loot_bag["items"]):
-                    if item.get("id") == item_id:
-                        item_idx = idx
-                        break
-                
-                if item_idx is not None:
-                    item = loot_bag["items"].pop(item_idx)
-                    # Add to target player's bag
-                    room.inventories[target_user_id]["bag"].append(item)
-                
-                if not loot_bag["items"]:
-                    del room.loot_bags[bag_id]
-                await broadcast_loot_snapshot(room)
-                _normalize_inventories(room)
-                await manager.broadcast(room_id, {"type": "inventory.snapshot", "inventories": room.inventories})
-                continue
-
-            if msg_type == "loot.discard":
-                # Remove item from loot bag without giving to player
-                # data: { "bag_id": "...", "item_id": "..." }
-                bag_id = (data.get("bag_id") or "").strip()
-                item_id = (data.get("item_id") or "").strip()
-                
-                if not bag_id or not item_id:
-                    continue
-                
-                if bag_id not in room.loot_bags:
-                    continue
-                
-                # Remove item from loot bag
-                loot_bag = room.loot_bags[bag_id]
-                cfg = loot_bag.get("_config") or loot_bag.get("config") or {}
-                cfg = _merge_category_props(cfg)
-                _apply_category_props_to_items(loot_bag.get("items") or [], cfg)
-                loot_bag["items"] = [item for item in loot_bag["items"] if item.get("id") != item_id]
-                if not loot_bag["items"]:
-                    del room.loot_bags[bag_id]
-                await broadcast_loot_snapshot(room)
-                continue
-
-            if msg_type == "loot.snapshot":
-                # Send current loot bags to requester (typically DM)
-                await websocket.send_json({"type": "loot.snapshot", "loot_bags": filter_loot_bags(room, role, user_id)})
-                continue
-
-            if msg_type == "loot.set_visibility":
-                if role != "dm":
-                    await websocket.send_json({"type": "error", "message": "DM only."})
-                    continue
-                bag_id = (data.get("bag_id") or "").strip()
-                if not bag_id or bag_id not in room.loot_bags:
-                    continue
-                visible = bool(data.get("visible", True))
-                room.loot_bags[bag_id]["visible_to_players"] = visible
-                await broadcast_loot_snapshot(room)
-                continue
-
-            await websocket.send_json({"type": "error", "message": f"Unknown message type: {msg_type}"})
+                    handler = HANDLERS[msg_type]
+                    await handler(room, websocket, data, manager, room_id, user_id, role, name)
+                except Exception as e:
+                    try:
+                        await websocket.send_json({"type": "error", "message": str(e)})
+                    except Exception:
+                        pass
+            else:
+                # Unknown message type
+                await websocket.send_json({"type": "error", "message": f"Unknown message type: {msg_type}"})
 
     except WebSocketDisconnect:
         pass

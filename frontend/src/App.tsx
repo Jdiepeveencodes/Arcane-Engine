@@ -12,6 +12,7 @@ import InventoryPanel from "./components/InventoryPanel";
 import DMLootPanel from "./components/DMLootPanel";
 import LootBagPanel from "./components/LootBagPanel";
 import CharacterPanel from "./components/CharacterPanel";
+import RulesSync from "./components/RulesSync";
 
 import { useRoomSocket } from "./hooks/useRoomSocket";
 
@@ -161,6 +162,8 @@ export default function App() {
             members={room.members ?? []}
             roomId={room.roomId}
           />
+
+          <RulesSync />
 
           {isDM && (
             <>

@@ -1,5 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useRoomChat } from "./useRoomChat";
+import { useRoomInventory } from "./useRoomInventory";
+import { useRoomLoot } from "./useRoomLoot";
+import { useRoomTokens } from "./useRoomTokens";
+import { useRoomScene } from "./useRoomScene";
 
+// Re-export types for backward compatibility
 export type Role = "dm" | "player";
 export type Channel = "table" | "narration";
 
@@ -27,9 +33,6 @@ export type Token = {
   darkvision?: boolean | null;
 };
 
-/**
- * INVENTORY (MVP)
- */
 export type EquipSlot =
   | "boots"
   | "legs"
@@ -56,6 +59,8 @@ export type ItemDef = {
   magicType?: string;
   magicBonus?: number;
 };
+
+export type Item = ItemDef; // Alias for backward compatibility
 
 export type PlayerInventory = {
   user_id: string;
@@ -131,8 +136,6 @@ export type WsMessage =
 function wsUrl(roomId: string, name: string, role: Role) {
   const proto = window.location.protocol === "https:" ? "wss" : "ws";
   const qs = new URLSearchParams({ name, role }).toString();
-
-  // IMPORTANT: use the same path your app was logging (/ws/rooms/...)
   return `${proto}://${window.location.host}/ws/rooms/${encodeURIComponent(roomId)}?${qs}`;
 }
 
@@ -148,23 +151,25 @@ export function useRoomSocket() {
   const [role, setRole] = useState<Role>(() => (localStorage.getItem("dnd.role") as Role) || "player");
 
   const [you, setYou] = useState<{ user_id: string; name: string; role: Role } | null>(null);
-
-  const [scene, setScene] = useState<Scene>({ title: "—", text: "—" });
   const [members, setMembers] = useState<Member[]>([]);
-  const [chatLog, setChatLog] = useState<ChatMsg[]>([]);
-
-  const [grid, setGrid] = useState<GridState>({ cols: 20, rows: 20, cell: 32 });
-  const [mapImageUrl, setMapImageUrl] = useState("");
-  const [tokens, setTokens] = useState<Token[]>([]);
-  const [lighting, setLightingState] = useState<LightingState>({ fog_enabled: false, ambient_radius: 0, darkness: false });
-
-  const [inventories, setInventories] = useState<Record<string, PlayerInventory>>({});
-  const [lootBags, setLootBags] = useState<Record<string, LootBag>>({});
-  const [lootStatus, setLootStatus] = useState<string>("");
 
   useEffect(() => localStorage.setItem("dnd.roomId", roomId), [roomId]);
   useEffect(() => localStorage.setItem("dnd.name", name), [name]);
   useEffect(() => localStorage.setItem("dnd.role", role), [role]);
+
+  const send = useCallback((payload: any) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    ws.send(JSON.stringify(payload));
+    return true;
+  }, []);
+
+  // Initialize domain hooks with dependency injection
+  const chat = useRoomChat(send);
+  const inventory = useRoomInventory(send);
+  const loot = useRoomLoot(send);
+  const tokens = useRoomTokens(send);
+  const scene = useRoomScene(send);
 
   const disconnect = useCallback(() => {
     setIsConnecting(false);
@@ -181,7 +186,6 @@ export function useRoomSocket() {
     const rid = roomId.trim();
     if (!rid) return setStatus("Enter a room ID.");
 
-    // prevent spam clicks from creating a storm
     if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
       return;
     }
@@ -220,272 +224,124 @@ export function useRoomSocket() {
       try {
         msg = JSON.parse(ev.data);
       } catch {
-        setChatLog((p) => [...p, { type: "error", message: "Bad message from server." }]);
+        chat.addChatMessage({ type: "error", message: "Bad message from server." } as any);
         return;
       }
 
+      // Handle initialization
       if (msg.type === "state.init") {
         setYou(msg.you ?? null);
-        setScene(msg.room?.scene || { title: "—", text: "—" });
         setMembers(Array.isArray(msg.members) ? msg.members : []);
-        setChatLog(Array.isArray(msg.chat_log) ? (msg.chat_log as any) : []);
-
-        if (msg.room?.grid) setGrid(msg.room.grid);
-        setMapImageUrl(msg.room?.map_image_url || "");
-        setTokens(Array.isArray(msg.room?.tokens) ? (msg.room?.tokens as any) : []);
-        if (msg.room?.lighting) setLightingState(msg.room.lighting);
-        setInventories((msg.room?.inventories || {}) as any);
-        setLootBags((msg.room?.loot_bags || {}) as any);
+        
+        // Delegate to domain hooks for their state initialization
+        if (msg.room?.scene) scene.setScene(msg.room.scene);
+        if (msg.room?.grid) scene.setGridState(msg.room.grid);
+        if (msg.room?.map_image_url) scene.setMapImageState(msg.room.map_image_url);
+        if (msg.room?.tokens) tokens.setTokensState(msg.room.tokens);
+        if (msg.room?.lighting) scene.setLightingState(msg.room.lighting);
+        if (msg.room?.inventories) inventory.setInventoriesState(msg.room.inventories);
+        if (msg.room?.loot_bags) loot.setLootBagsState(msg.room.loot_bags);
+        if (msg.chat_log) chat.setChatLogState(msg.chat_log);
         return;
       }
 
+      // Route to domain handlers
       if (msg.type === "members.update") return setMembers(Array.isArray(msg.members) ? msg.members : []);
-      if (msg.type === "scene.update" || msg.type === "scene.snapshot") return setScene(msg.scene || { title: "—", text: "—" });
-      if (msg.type === "inventory.snapshot") return setInventories((msg.inventories || {}) as any);
+      if (msg.type === "scene.update" || msg.type === "scene.snapshot") return scene.setScene(msg.scene);
+      if (msg.type === "inventory.snapshot") return inventory.setInventoriesState(msg.inventories);
       if (msg.type === "loot.snapshot") {
-        setLootBags((msg.loot_bags || {}) as any);
+        loot.setLootBagsState(msg.loot_bags);
         const bagCount = Object.keys(msg.loot_bags || {}).length;
-        setLootStatus(`Items updated (${bagCount} container${bagCount === 1 ? "" : "s"}).`);
+        loot.setLootStatus(`Items updated (${bagCount} container${bagCount === 1 ? "" : "s"}).`);
         return;
       }
       if (msg.type === "error") {
-        setLootStatus(msg.message || "Server error.");
+        loot.setLootStatus(msg.message || "Server error.");
         return;
       }
-
       if (msg.type === "map.snapshot") {
-        setGrid(msg.grid);
-        setMapImageUrl(msg.map_image_url || "");
-        setTokens(Array.isArray(msg.tokens) ? (msg.tokens as any) : []);
-        if (msg.lighting) setLightingState(msg.lighting);
+        scene.setGridState(msg.grid);
+        scene.setMapImageState(msg.map_image_url || "");
+        tokens.setTokensState(Array.isArray(msg.tokens) ? msg.tokens : []);
+        if (msg.lighting) scene.setLightingState(msg.lighting);
         return;
       }
-      if (msg.type === "token.snapshot") {
-        setTokens(Array.isArray(msg.tokens) ? (msg.tokens as any) : []);
-        return;
-      }
-      if (msg.type === "token.added") {
-        setTokens((prev) => [...prev, msg.token as any]);
-        return;
-      }
-      if (msg.type === "token.updated") {
-        setTokens((prev) => prev.map((t: any) => (t.id === msg.token?.id ? { ...t, ...(msg.token as any) } : t)));
-        return;
-      }
-      if (msg.type === "token.removed") {
-        setTokens((prev) => prev.filter((t: any) => t.id !== msg.token_id));
-        return;
-      }
-      if (msg.type === "token.moved") {
-        setTokens((prev) => prev.map((t: any) => (t.id === msg.token_id ? { ...t, x: msg.x, y: msg.y } : t)));
-        return;
-      }
+      if (msg.type === "token.snapshot") return tokens.setTokensState(Array.isArray(msg.tokens) ? msg.tokens : []);
+      if (msg.type === "token.added") return tokens.addTokenState(msg.token);
+      if (msg.type === "token.updated") return tokens.updateTokenState(msg.token);
+      if (msg.type === "token.removed") return tokens.removeTokenState(msg.token_id);
+      if (msg.type === "token.moved") return tokens.moveTokenState(msg.token_id, msg.x, msg.y);
 
-      setChatLog((p) => [...p, msg as any]);
+      // Fallback to chat
+      chat.addChatMessage(msg);
     };
-  }, [roomId, name, role]);
+  }, [roomId, name, role, chat, inventory, loot, tokens, scene, send]);
 
-  const send = useCallback((payload: any) => {
-    const ws = wsRef.current;
-    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
-    ws.send(JSON.stringify(payload));
-    return true;
-  }, []);
-
-  const sendChat = useCallback(
-    (channel: Channel, text: string) => {
-      const t = text.trim();
-      if (!t) return false;
-      return send({ type: "chat.send", channel, text: t });
-    },
-    [send]
-  );
-
-  const rollDice = useCallback(
-    (expr: string, mode?: string) => {
-      const e = (expr || "").trim();
-      if (!e) return false;
-      return send({ type: "dice.roll", expr: e, mode: mode || "norm" });
-    },
-    [send]
-  );
-
-  const addLocalSystem = useCallback((text: string) => {
-    setChatLog((p) => [...p, { type: "chat.message", channel: "table", role: "system", name: "System", text } as any]);
-  }, []);
-
-  // map/token actions preserved (if you had them previously they’ll still work)
-  const moveToken = useCallback(
-    (token_id: string, x: number, y: number) => send({ type: "token.move", token_id, x, y }),
-    [send]
-  );
-  const updateGrid = useCallback(
-    (patch: Partial<GridState>) => {
-      const next = {
-        cols: patch.cols ?? grid.cols,
-        rows: patch.rows ?? grid.rows,
-        cell: patch.cell ?? grid.cell,
-      };
-      const ok = send({ type: "grid.set", ...next });
-      if (ok) setGrid(next);
-      return ok;
-    },
-    [send, grid]
-  );
-  const setMapImage = useCallback((url: string) => send({ type: "map.set_url", url }), [send]);
-  const setLighting = useCallback(
-    (next: LightingState) => {
-      const ok = send({ type: "map.lighting.set", lighting: next });
-      if (ok) setLightingState(next);
-      return ok;
-    },
-    [send]
-  );
-  const addToken = useCallback((token: Partial<Token>) => send({ type: "token.add", token }), [send]);
-  const removeToken = useCallback((token_id: string) => send({ type: "token.remove", token_id }), [send]);
-  const updateToken = useCallback((token_id: string, patch: Partial<Token>) => send({ type: "token.update", token_id, patch }), [send]);
-
-  const requestInventorySnapshot = useCallback(() => send({ type: "inventory.snapshot" }), [send]);
-  const addToBag = useCallback((item: Partial<any>) => send({ type: "inventory.add", item }), [send]);
-  const equipItem = useCallback((slot: EquipSlot, item: Partial<any>) => send({ type: "inventory.equip", itemId: item.id, slot }), [send]);
-  const unequipSlot = useCallback((slot: EquipSlot) => send({ type: "inventory.unequip", slot }), [send]);
-  const dropItem = useCallback((itemId: string) => send({ type: "inventory.drop", itemId }), [send]);
-
-  // Loot bag functions
-  const generateLoot = useCallback((items: any[], bagName: string, bagType: "community" | "player" = "community") => send({ type: "loot.generate", items, bag_name: bagName, bag_type: bagType }), [send]);
-  const dmGenerateLoot = useCallback(
-    (targetUserId: string, config: LootConfig) => {
-      const categoryProps = config?.categoryProps;
-      const propsSummary = (() => {
-        if (!categoryProps) return "";
-        const parts: string[] = [];
-        for (const [key, value] of Object.entries(categoryProps)) {
-          if (!value) continue;
-          const segs: string[] = [];
-          if (value.bonus) segs.push(`+${value.bonus}`);
-          if (value.elemental) segs.push(value.elemental);
-          if (value.magical) segs.push(value.magical);
-          if (segs.length) parts.push(`${key}: ${segs.join(", ")}`);
-        }
-        return parts.length ? ` (${parts.join(" | ")})` : "";
-      })();
-      const ok = send({
-        type: "loot.generate",
-        target_user_id: targetUserId,
-        config,
-        categoryProps,
-        category_props: categoryProps,
-        bag_name: config?.bagName || "",
-      });
-      setLootStatus(ok ? `Requesting loot...${propsSummary}` : "Not connected.");
-      return ok;
-    },
-    [send]
-  );
-  const setLootVisibility = useCallback((bagId: string, visible: boolean) => send({ type: "loot.set_visibility", bag_id: bagId, visible }), [send]);
-  const distributeLoot = useCallback((bagId: string, itemId: string, targetUserId: string) => send({ type: "loot.distribute", bag_id: bagId, item_id: itemId, target_user_id: targetUserId }), [send]);
-  const discardLoot = useCallback((bagId: string, itemId: string) => send({ type: "loot.discard", bag_id: bagId, item_id: itemId }), [send]);
-  const requestLootSnapshot = useCallback(() => send({ type: "loot.snapshot" }), [send]);
-
-  // ensure we close socket when the hook unmounts
   useEffect(() => {
     return () => disconnect();
   }, [disconnect]);
 
-  return useMemo(
-    () => ({
-      status,
-      connected,
-      isConnecting,
+  // Return unified interface with domain state and functions
+  return {
+    // Connection state
+    status,
+    connected,
+    isConnecting,
 
-      roomId,
-      setRoomId,
-      name,
-      setName,
-      role,
-      setRole,
+    // Room parameters
+    roomId,
+    setRoomId,
+    name,
+    setName,
+    role,
+    setRole,
 
-      you,
-      scene,
-      members,
-      chatLog,
+    // Session data
+    you,
+    members,
 
-      connect,
-      disconnect,
+    // Connection methods
+    connect,
+    disconnect,
 
-      sendChat,
-      rollDice,
-      addLocalSystem,
+    // Chat domain
+    chatLog: chat.chatLog,
+    sendChat: chat.sendChat,
+    rollDice: chat.rollDice,
+    addLocalSystem: chat.addLocalSystem,
 
-      grid,
-      lighting,
-      mapImageUrl,
-      tokens,
-      moveToken,
-      updateGrid,
-      setMapImage,
-      setLighting,
-      addToken,
-      removeToken,
-      updateToken,
+    // Scene domain
+    scene: scene.scene,
+    grid: scene.grid,
+    mapImageUrl: scene.mapImageUrl,
+    lighting: scene.lighting,
+    updateGrid: scene.updateGrid,
+    setMapImage: scene.setMapImage,
+    setLighting: scene.setLighting,
 
-      inventories,
-      requestInventorySnapshot,
-      addToBag,
-      equipItem,
-      unequipSlot,
-      dropItem,
+    // Tokens domain
+    tokens: tokens.tokens,
+    moveToken: tokens.moveToken,
+    addToken: tokens.addToken,
+    removeToken: tokens.removeToken,
+    updateToken: tokens.updateToken,
 
-      lootBags,
-      lootStatus,
-      generateLoot,
-      dmGenerateLoot,
-      setLootVisibility,
-      distributeLoot,
-      discardLoot,
-      requestLootSnapshot,
-    }),
-    [
-      status,
-      connected,
-      isConnecting,
-      roomId,
-      name,
-      role,
-      you,
-      scene,
-      members,
-      chatLog,
-      connect,
-      disconnect,
-      sendChat,
-      rollDice,
-      addLocalSystem,
-      grid,
-      lighting,
-      mapImageUrl,
-      tokens,
-      moveToken,
-      updateGrid,
-      setMapImage,
-      setLighting,
-      addToken,
-      removeToken,
-      updateToken,
-      inventories,
-      requestInventorySnapshot,
-      addToBag,
-      equipItem,
-      unequipSlot,
-      dropItem,
-      lootBags,
-      lootStatus,
-      generateLoot,
-      dmGenerateLoot,
-      setLootVisibility,
-      distributeLoot,
-      discardLoot,
-      requestLootSnapshot,
-    ]
-  );
+    // Inventory domain
+    inventories: inventory.inventories,
+    requestInventorySnapshot: inventory.requestInventorySnapshot,
+    addToBag: inventory.addToBag,
+    equipItem: inventory.equipItem,
+    unequipSlot: inventory.unequipSlot,
+    dropItem: inventory.dropItem,
+
+    // Loot domain
+    lootBags: loot.lootBags,
+    lootStatus: loot.lootStatus,
+    generateLoot: loot.generateLoot,
+    dmGenerateLoot: loot.dmGenerateLoot,
+    setLootVisibility: loot.setLootVisibility,
+    distributeLoot: loot.distributeLoot,
+    discardLoot: loot.discardLoot,
+    requestLootSnapshot: loot.requestLootSnapshot,
+  };
 }

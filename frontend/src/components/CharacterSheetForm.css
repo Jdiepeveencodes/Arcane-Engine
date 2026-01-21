@@ -1,5 +1,5 @@
 .characterSheet {
-  --sheet-bg-image: url("/character-sheets/character-sheet-inspo.png");
+  --sheet-bg-image: url("/static/character-sheets/ArcaneEngineCharSheet.png");
   --sheet-frame: rgba(133, 86, 39, 0.65);
   --sheet-input-bg: rgba(255, 255, 255, 0.75);
   --sheet-input-text: #2b1a0b;
@@ -54,8 +54,9 @@
   width: min(100%, 720px);
   aspect-ratio: 612 / 792;
   background-image: var(--sheet-bg-image);
-  background-size: cover;
+  background-size: contain;
   background-position: center;
+  background-repeat: no-repeat;
   border-radius: 16px;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
 }
