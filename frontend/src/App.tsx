@@ -13,6 +13,12 @@ import InventoryPanel from "./components/InventoryPanel";
 import DMLootPanel from "./components/DMLootPanel";
 import LootBagPanel from "./components/LootBagPanel";
 import CharacterPanel from "./components/CharacterPanel";
+import DMStartScreen from "./components/DMStartScreen";
+import CampaignSetupModal from "./components/CampaignSetupModal";
+import LoadCampaignModal from "./components/LoadCampaignModal";
+import PlayerStartScreen from "./components/PlayerStartScreen";
+import CharacterCreationForm from "./components/CharacterCreationForm";
+import CharacterSelectionModal from "./components/CharacterSelectionModal";
 
 import { useRoomSocket } from "./hooks/useRoomSocket";
 
@@ -34,6 +40,24 @@ export default function App() {
   const [mapTab, setMapTab] = useState<"map" | "sheet" | "sheet2" | "spells">("map");
   const [rulesHasUpdate, setRulesHasUpdate] = useState(false);
   const [rulesSyncing, setRulesSyncing] = useState(false);
+
+  // DM Workflow state
+  const [currentScreen, setCurrentScreen] = useState<"start" | "room">(
+    room.roomId ? "room" : "start"
+  );
+  const [showCampaignSetup, setShowCampaignSetup] = useState(false);
+  const [showLoadModal, setShowLoadModal] = useState(false);
+  const [recentCampaigns, setRecentCampaigns] = useState<any[]>([]);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
+  // Player Workflow state
+  const [playerCurrentScreen, setPlayerCurrentScreen] = useState<"start" | "room">(
+    room.roomId ? "room" : "start"
+  );
+  const [showCharacterCreation, setShowCharacterCreation] = useState(false);
+  const [showCharacterSelection, setShowCharacterSelection] = useState(false);
+  const [recentCharacters, setRecentCharacters] = useState<any[]>([]);
+  const [playerIsTransitioning, setPlayerIsTransitioning] = useState(false);
 
   const pendingBatchRef = useRef<{ active: boolean; expectedResults: number }>({
     active: false,
@@ -123,8 +147,212 @@ export default function App() {
 
   const isDM = room.role === "dm";
 
+  // DM Workflow handlers
+  const handleCampaignCreated = (formData: any) => {
+    setShowCampaignSetup(false);
+    setCurrentScreen("room");
+  };
+
+  const handleLoadCampaign = async (campaignId: string) => {
+    setIsTransitioning(true);
+    try {
+      await room.send({
+        type: "campaign.setup.load",
+        campaign_id: campaignId,
+      });
+      setShowLoadModal(false);
+      setCurrentScreen("room");
+    } catch (error) {
+      console.error("Error loading campaign:", error);
+      setIsTransitioning(false);
+    }
+  };
+
+  const loadRecentCampaigns = useCallback(async () => {
+    try {
+      const response = await room.send({
+        type: "campaign.setup.list",
+      });
+      if (response?.campaigns) {
+        setRecentCampaigns(response.campaigns.slice(0, 3));
+      }
+    } catch (error) {
+      console.error("Error loading recent campaigns:", error);
+    }
+  }, [room]);
+
+  // Load recent campaigns on mount and when room changes
+  useEffect(() => {
+    if (isDM && room.connected) {
+      loadRecentCampaigns();
+    }
+  }, [isDM, room.connected, loadRecentCampaigns]);
+
+  // Update currentScreen when room is created/loaded
+  useEffect(() => {
+    if (room.roomId && currentScreen === "start") {
+      setCurrentScreen("room");
+    }
+  }, [room.roomId, currentScreen]);
+
+  // Player Workflow handlers
+  const handleCharacterCreated = (characterData: any) => {
+    setShowCharacterCreation(false);
+    setPlayerCurrentScreen("room");
+  };
+
+  const handleLoadCharacter = async (characterId: string) => {
+    setPlayerIsTransitioning(true);
+    try {
+      await room.send({
+        type: "character.load",
+        character_id: characterId,
+      });
+      setShowCharacterSelection(false);
+      setPlayerCurrentScreen("room");
+    } catch (error) {
+      console.error("Error loading character:", error);
+      setPlayerIsTransitioning(false);
+    }
+  };
+
+  const loadRecentCharacters = useCallback(async () => {
+    try {
+      const response = await room.send({
+        type: "character.list",
+      });
+      if (response?.characters) {
+        setRecentCharacters(response.characters.slice(0, 3));
+      }
+    } catch (error) {
+      console.error("Error loading recent characters:", error);
+    }
+  }, [room]);
+
+  // Load recent characters on mount and when room changes
+  useEffect(() => {
+    if (!isDM && room.connected) {
+      loadRecentCharacters();
+    }
+  }, [isDM, room.connected, loadRecentCharacters]);
+
+  // Update playerCurrentScreen when room is created/loaded
+  useEffect(() => {
+    if (room.roomId && playerCurrentScreen === "start") {
+      setPlayerCurrentScreen("room");
+    }
+  }, [room.roomId, playerCurrentScreen]);
+
   // Memoize grid to prevent MapPanelPixi from flickering on every render
   const memoizedGrid = useCallback(() => room.grid, [room.grid.cols, room.grid.rows, room.grid.cell])();
+
+  // Show DM start screen if DM and no room selected
+  if (isDM && currentScreen === "start" && !room.roomId) {
+    return (
+      <>
+        <TopBar
+          status={room.status}
+          rulesHasUpdate={rulesHasUpdate}
+          onRulesSync={handleRulesSync}
+          rulesSyncing={rulesSyncing}
+          roomName={roomName}
+          setRoomName={setRoomName}
+          onCreateRoom={createRoom}
+          roomId={room.roomId}
+          setRoomId={room.setRoomId}
+          name={room.name}
+          setName={room.setName}
+          role={room.role}
+          setRole={room.setRole}
+          connected={room.connected}
+          onJoin={room.connect}
+          onDisconnect={room.disconnect}
+        />
+        <DMStartScreen
+          onNewCampaign={() => setShowCampaignSetup(true)}
+          onLoadCampaign={() => setShowLoadModal(true)}
+          onRecentCampaign={handleLoadCampaign}
+          recentCampaigns={recentCampaigns}
+          isLoading={isTransitioning}
+        />
+
+        {showCampaignSetup && (
+          <CampaignSetupModal
+            onCampaignCreated={handleCampaignCreated}
+            onCancel={() => setShowCampaignSetup(false)}
+            sendWebSocketMessage={room.send}
+          />
+        )}
+
+        {showLoadModal && (
+          <LoadCampaignModal
+            onSelectCampaign={handleLoadCampaign}
+            onCancel={() => setShowLoadModal(false)}
+            sendWebSocketMessage={room.send}
+          />
+        )}
+      </>
+    );
+  }
+
+  // Show Player start screen if Player and no room selected
+  if (!isDM && playerCurrentScreen === "start" && !room.roomId) {
+    return (
+      <>
+        <TopBar
+          status={room.status}
+          rulesHasUpdate={rulesHasUpdate}
+          onRulesSync={handleRulesSync}
+          rulesSyncing={rulesSyncing}
+          roomName={roomName}
+          setRoomName={setRoomName}
+          onCreateRoom={createRoom}
+          roomId={room.roomId}
+          setRoomId={room.setRoomId}
+          name={room.name}
+          setName={room.setName}
+          role={room.role}
+          setRole={room.setRole}
+          connected={room.connected}
+          onJoin={room.connect}
+          onDisconnect={room.disconnect}
+        />
+        <PlayerStartScreen
+          onCreateCharacter={() => setShowCharacterCreation(true)}
+          onLoadCharacter={() => setShowCharacterSelection(true)}
+          onQuickLoadCharacter={handleLoadCharacter}
+          recentCharacters={recentCharacters}
+          playerName={room.name}
+          isLoading={playerIsTransitioning}
+        />
+
+        {showCharacterCreation && (
+          <CharacterCreationForm
+            onSubmit={async (formData) => {
+              try {
+                await room.send({
+                  type: "character.create",
+                  character_data: formData,
+                });
+                handleCharacterCreated(formData);
+              } catch (error) {
+                console.error("Error creating character:", error);
+              }
+            }}
+            onCancel={() => setShowCharacterCreation(false)}
+          />
+        )}
+
+        {showCharacterSelection && (
+          <CharacterSelectionModal
+            onSelectCharacter={handleLoadCharacter}
+            onCancel={() => setShowCharacterSelection(false)}
+            sendWebSocketMessage={room.send}
+          />
+        )}
+      </>
+    );
+  }
 
   return (
     <>

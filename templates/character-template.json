@@ -1,0 +1,32 @@
+{
+  "metadata": {
+    "template_version": "1.0",
+    "game_system": "D&D 5e",
+    "created_date": "2026-01-22",
+    "instructions": "Fill out this JSON template with your character information and save it. You can then import it into Arcane Engine using the Import Character feature."
+  },
+  "character": {
+    "player_name": "Your Name",
+    "character_name": "Character Name",
+    "race": "Human",
+    "class_name": "Fighter",
+    "background": "Soldier",
+    "alignment": "Neutral Good",
+    "level": 1,
+    "ability_scores": {
+      "strength": 15,
+      "dexterity": 14,
+      "constitution": 13,
+      "intelligence": 12,
+      "wisdom": 10,
+      "charisma": 8
+    },
+    "skills": ["Athletics", "Intimidation", "Perception"],
+    "background_story": "Describe your character's history, motivations, and how they came to be. What major events shaped them? What drives them forward?",
+    "personality_traits": "I'm disciplined and follow orders without question.",
+    "ideals": "Responsibility. I do what I must to protect those who cannot protect themselves.",
+    "bonds": "I owe a debt to a fellow soldier who saved my life.",
+    "flaws": "I have difficulty trusting those who haven't proven themselves in battle.",
+    "equipment_notes": "Longsword, Shield, Plate Armor, Backpack with 10 days rations"
+  }
+}

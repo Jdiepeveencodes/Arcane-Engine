@@ -519,6 +519,152 @@ def validate_campaign_responses(responses: Dict[str, Any]) -> tuple[bool, List[s
     
     return (len(errors) == 0, errors)
 
+
+# ============================================================================
+# PERSISTENCE FUNCTIONS - List, Load, Delete
+# ============================================================================
+
+import os
+import json
+from datetime import datetime
+from typing import List
+
+CAMPAIGNS_DIR = "saved_campaigns"
+
+def _ensure_campaigns_dir() -> None:
+    """Create campaigns directory if it doesn't exist."""
+    if not os.path.exists(CAMPAIGNS_DIR):
+        os.makedirs(CAMPAIGNS_DIR)
+
+
+def _get_campaign_path(campaign_id: str) -> str:
+    """Get the file path for a campaign."""
+    return os.path.join(CAMPAIGNS_DIR, f"{campaign_id}.json")
+
+
+def save_campaign(campaign: CampaignSetup) -> str:
+    """
+    Save a campaign to disk and return its ID.
+    
+    Args:
+        campaign: CampaignSetup object to save
+        
+    Returns:
+        campaign_id: The saved campaign's ID
+    """
+    _ensure_campaigns_dir()
+    
+    if not campaign.campaign_id:
+        import uuid
+        campaign.campaign_id = str(uuid.uuid4())
+    
+    campaign_data = serialize_campaign(campaign)
+    campaign_data["created_at"] = datetime.now().isoformat()
+    campaign_data["last_played"] = None
+    
+    path = _get_campaign_path(campaign.campaign_id)
+    
+    with open(path, 'w') as f:
+        json.dump(campaign_data, f, indent=2)
+    
+    return campaign.campaign_id
+
+
+def load_campaign(campaign_id: str) -> Optional[CampaignSetup]:
+    """
+    Load a campaign from disk.
+    
+    Args:
+        campaign_id: The ID of the campaign to load
+        
+    Returns:
+        CampaignSetup object or None if not found
+    """
+    path = _get_campaign_path(campaign_id)
+    
+    if not os.path.exists(path):
+        return None
+    
+    with open(path, 'r') as f:
+        campaign_data = json.load(f)
+    
+    # Update last_played timestamp
+    campaign_data["last_played"] = datetime.now().isoformat()
+    
+    with open(path, 'w') as f:
+        json.dump(campaign_data, f, indent=2)
+    
+    return deserialize_campaign(campaign_data)
+
+
+def delete_campaign(campaign_id: str) -> bool:
+    """
+    Delete a campaign from disk.
+    
+    Args:
+        campaign_id: The ID of the campaign to delete
+        
+    Returns:
+        True if deleted, False if not found
+    """
+    path = _get_campaign_path(campaign_id)
+    
+    if not os.path.exists(path):
+        return False
+    
+    os.remove(path)
+    return True
+
+
+def list_campaigns() -> List[Dict[str, Any]]:
+    """
+    List all saved campaigns.
+    
+    Returns:
+        List of campaign metadata dictionaries
+    """
+    _ensure_campaigns_dir()
+    
+    campaigns = []
+    
+    if not os.path.exists(CAMPAIGNS_DIR):
+        return campaigns
+    
+    for filename in os.listdir(CAMPAIGNS_DIR):
+        if not filename.endswith('.json'):
+            continue
+        
+        try:
+            path = os.path.join(CAMPAIGNS_DIR, filename)
+            with open(path, 'r') as f:
+                campaign_data = json.load(f)
+            
+            campaigns.append({
+                "id": campaign_data.get("campaign_id"),
+                "name": campaign_data.get("campaign_name"),
+                "story_type": campaign_data.get("story_type"),
+                "campaign_length": campaign_data.get("campaign_length"),
+                "core_conflict": campaign_data.get("core_conflict"),
+                "estimated_sessions": campaign_data.get("estimated_sessions"),
+                "created_at": campaign_data.get("created_at"),
+                "last_played": campaign_data.get("last_played"),
+            })
+        except (json.JSONDecodeError, IOError) as e:
+            print(f"Error reading campaign {filename}: {e}")
+            continue
+    
+    # Sort by last_played (most recent first), then by created_at
+    campaigns.sort(
+        key=lambda x: (
+            x.get("last_played") or x.get("created_at") or "",
+            x.get("created_at") or ""
+        ),
+        reverse=True
+    )
+    
+    return campaigns
+
+
 # ============================================================================
 # SUMMARY
 # ============================================================================

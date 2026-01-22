@@ -1,0 +1,356 @@
+.character-creation-form {
+  background: linear-gradient(135deg, #0b0f17 0%, #1a1f2e 100%);
+  border: 2px solid #2a5f9e;
+  border-radius: 12px;
+  padding: 40px;
+  max-width: 800px;
+  margin: 0 auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.form-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.form-header h1 {
+  font-size: 2.5em;
+  color: #4287f5;
+  margin: 0 0 10px 0;
+  text-shadow: 0 2px 10px rgba(66, 135, 245, 0.3);
+}
+
+.form-subtitle {
+  color: #a0b0c0;
+  font-size: 1.1em;
+  margin: 0;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: rgba(42, 65, 92, 0.5);
+  border-radius: 4px;
+  margin-bottom: 10px;
+  overflow: hidden;
+  border: 1px solid #2a5f9e;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4287f5 0%, #66bbff 100%);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+  box-shadow: 0 0 10px rgba(66, 135, 245, 0.5);
+}
+
+.progress-text {
+  text-align: center;
+  color: #7a8fa0;
+  font-size: 0.9em;
+  margin: 0 0 30px 0;
+}
+
+.form-section {
+  margin-bottom: 40px;
+}
+
+.form-section h2 {
+  font-size: 1.6em;
+  color: #4287f5;
+  margin: 0 0 30px 0;
+  padding-bottom: 10px;
+  border-bottom: 2px solid rgba(66, 135, 245, 0.3);
+}
+
+.questions-container {
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group label {
+  color: #d4dce8;
+  font-weight: 600;
+  font-size: 1em;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.required {
+  color: #ff6b6b;
+  font-weight: bold;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+  background: rgba(42, 55, 77, 0.6);
+  border: 1px solid rgba(66, 135, 245, 0.3);
+  border-radius: 6px;
+  color: #d4dce8;
+  padding: 12px 14px;
+  font-size: 1em;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.form-group input:hover,
+.form-group textarea:hover,
+.form-group select:hover {
+  border-color: rgba(66, 135, 245, 0.6);
+  background: rgba(42, 55, 77, 0.8);
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #4287f5;
+  background: rgba(42, 55, 77, 1);
+  box-shadow: 0 0 12px rgba(66, 135, 245, 0.3);
+}
+
+.form-group input.error,
+.form-group textarea.error,
+.form-group select.error {
+  border-color: #ff6b6b;
+  background: rgba(255, 107, 107, 0.1);
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 100px;
+  line-height: 1.5;
+}
+
+.form-group select {
+  cursor: pointer;
+  appearance: none;
+  padding-right: 35px;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234287f5' stroke-width='2'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 20px;
+  padding-right: 35px;
+}
+
+.field-error {
+  color: #ff6b6b;
+  font-size: 0.85em;
+  margin: 0;
+  margin-top: 4px;
+}
+
+.error-banner {
+  background: rgba(255, 107, 107, 0.15);
+  border: 1px solid #ff6b6b;
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  color: #ff9999;
+}
+
+.error-banner p {
+  margin: 0;
+  font-weight: 500;
+}
+
+/* Multiselect Grid */
+.multiselect-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(42, 55, 77, 0.6);
+  border: 1px solid rgba(66, 135, 245, 0.3);
+  border-radius: 6px;
+  padding: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #d4dce8;
+  user-select: none;
+}
+
+.checkbox-label:hover {
+  border-color: rgba(66, 135, 245, 0.6);
+  background: rgba(66, 135, 245, 0.1);
+}
+
+.checkbox-label input[type="checkbox"] {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  accent-color: #4287f5;
+}
+
+.checkbox-label span {
+  font-size: 0.9em;
+}
+
+/* Ability Scores Grid */
+.abilities-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 15px;
+}
+
+.ability-input {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.ability-input label {
+  margin: 0;
+  font-size: 0.9em;
+  color: #4287f5;
+  text-align: center;
+}
+
+.ability-input input {
+  text-align: center;
+  font-weight: bold;
+  font-size: 1.2em;
+  padding: 10px !important;
+}
+
+/* Form Actions */
+.form-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 40px;
+  flex-wrap: wrap;
+}
+
+button {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 6px;
+  font-size: 1em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #4287f5 0%, #66bbff 100%);
+  color: white;
+  border: none;
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(66, 135, 245, 0.4);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-secondary {
+  background: rgba(66, 135, 245, 0.2);
+  color: #4287f5;
+  border: 1px solid #4287f5;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: rgba(66, 135, 245, 0.3);
+  box-shadow: 0 4px 12px rgba(66, 135, 245, 0.2);
+}
+
+.btn-success {
+  background: linear-gradient(135deg, #51cf66 0%, #2f9e44 100%);
+  color: white;
+  border: none;
+  flex: 1;
+  min-width: 150px;
+}
+
+.btn-success:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(81, 207, 102, 0.4);
+}
+
+.btn-success:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-cancel {
+  background: rgba(255, 107, 107, 0.2);
+  color: #ff9999;
+  border: 1px solid #ff6b6b;
+}
+
+.btn-cancel:hover:not(:disabled) {
+  background: rgba(255, 107, 107, 0.3);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .character-creation-form {
+    padding: 24px;
+  }
+
+  .form-header h1 {
+    font-size: 1.8em;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  button {
+    width: 100%;
+  }
+
+  .btn-success {
+    flex: none;
+  }
+
+  .abilities-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .multiselect-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .character-creation-form {
+    padding: 16px;
+  }
+
+  .form-header h1 {
+    font-size: 1.5em;
+  }
+
+  .abilities-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .multiselect-grid {
+    grid-template-columns: 1fr;
+  }
+}

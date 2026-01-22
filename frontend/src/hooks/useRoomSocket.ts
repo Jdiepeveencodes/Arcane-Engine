@@ -141,6 +141,8 @@ function wsUrl(roomId: string, name: string, role: Role) {
 
 export function useRoomSocket() {
   const wsRef = useRef<WebSocket | null>(null);
+  const pendingResponsesRef = useRef(new Map<string, (data: any) => void>());
+  const messageIdRef = useRef(0);
 
   const [status, setStatus] = useState("Not connected.");
   const [connected, setConnected] = useState(false);
@@ -159,9 +161,39 @@ export function useRoomSocket() {
 
   const send = useCallback((payload: any) => {
     const ws = wsRef.current;
-    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
-    ws.send(JSON.stringify(payload));
-    return true;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return Promise.reject("Not connected");
+    
+    // Message types that expect responses
+    const responseTypes = [
+      "character.create",
+      "character.list",
+      "character.load",
+      "character.delete",
+      "campaign.setup.list",
+      "campaign.setup.load",
+      "campaign.setup.delete",
+    ];
+    
+    // If this message type expects a response, wrap it in a promise
+    if (responseTypes.includes(payload.type)) {
+      const msgId = `msg_${++messageIdRef.current}`;
+      const promise = new Promise((resolve, reject) => {
+        pendingResponsesRef.current.set(msgId, resolve);
+        // Timeout after 30 seconds
+        setTimeout(() => {
+          pendingResponsesRef.current.delete(msgId);
+          reject("Response timeout");
+        }, 30000);
+      });
+      
+      // Send with message ID
+      ws.send(JSON.stringify({ ...payload, _msgId: msgId }));
+      return promise;
+    } else {
+      // Fire-and-forget for other messages
+      ws.send(JSON.stringify(payload));
+      return Promise.resolve(true);
+    }
   }, []);
 
   // Initialize domain hooks with dependency injection
@@ -220,11 +252,21 @@ export function useRoomSocket() {
     };
 
     ws.onmessage = (ev) => {
-      let msg: WsMessage;
+      let msg: WsMessage & { _msgId?: string };
       try {
         msg = JSON.parse(ev.data);
       } catch {
         chat.addChatMessage({ type: "error", message: "Bad message from server." } as any);
+        return;
+      }
+
+      // Check if this is a response to a pending request
+      if (msg._msgId && pendingResponsesRef.current.has(msg._msgId)) {
+        const resolver = pendingResponsesRef.current.get(msg._msgId);
+        pendingResponsesRef.current.delete(msg._msgId);
+        if (resolver) {
+          resolver(msg);
+        }
         return;
       }
 

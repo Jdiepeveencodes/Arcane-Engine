@@ -486,6 +486,15 @@ export default function MapPanelPixi({
     fogLayer.visible = fogEnabled;
   }, [lighting?.fog_enabled]);
 
+  // ---------- FOG OF WAR - VISIBILITY TOGGLE ----------
+  useEffect(() => {
+    const fogLayer = fogLayerRef.current as PIXI.Container | null;
+    if (!fogLayer) return;
+
+    const fogEnabled = !!lighting?.fog_enabled;
+    fogLayer.visible = fogEnabled;
+  }, [lighting?.fog_enabled]);
+
   // ---------- FOG OF WAR - RENDER ON TOKEN MOVEMENT ----------
   useEffect(() => {
     const fogLayer = fogLayerRef.current as PIXI.Container | null;
@@ -509,12 +518,14 @@ export default function MapPanelPixi({
       fogCanvas.height = Math.max(1, h);
       revealCanvas.width = fogCanvas.width;
       revealCanvas.height = fogCanvas.height;
-      discoveredCanvasRef.current.width = fogCanvas.width;
-      discoveredCanvasRef.current.height = fogCanvas.height;
+      if (discoveredCanvasRef.current) {
+        discoveredCanvasRef.current.width = fogCanvas.width;
+        discoveredCanvasRef.current.height = fogCanvas.height;
+      }
       fogKeyRef.current = fogKey;
       fogSprite.width = w;
       fogSprite.height = h;
-      if (revealCtx) revealCtx.clearRect(0, 0, w, h);
+      revealCtx.clearRect(0, 0, w, h);
       if (discoveredCtxRef.current) discoveredCtxRef.current.clearRect(0, 0, w, h);
     }
 
@@ -552,6 +563,7 @@ export default function MapPanelPixi({
 
     revealCtx.globalCompositeOperation = "source-over";
     revealCtx.fillStyle = "rgba(255,255,255,1)";
+    revealCtx.clearRect(0, 0, w, h);
     for (const hole of holes) {
       revealCtx.beginPath();
       revealCtx.arc(hole.x, hole.y, hole.r, 0, Math.PI * 2);

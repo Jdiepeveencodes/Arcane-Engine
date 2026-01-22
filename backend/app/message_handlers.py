@@ -1047,6 +1047,326 @@ async def handle_campaign_setup_update(
     })
 
 
+async def handle_campaign_setup_list(
+    room: Any,
+    websocket: Any,
+    data: Dict[str, Any],
+    manager: Any,
+    room_id: str,
+    user_id: str,
+    role: str,
+    name: str,
+) -> None:
+    """Handle campaign.setup.list - get all saved campaigns."""
+    if role != "dm":
+        await websocket.send_json({"type": "error", "message": "DM only.", "_msgId": data.get("_msgId")})
+        return
+    
+    from .campaign_setup import list_campaigns
+    
+    campaigns = list_campaigns()
+    msg_id = data.get("_msgId")
+    
+    await websocket.send_json({
+        "type": "campaign.setup.list_response",
+        "campaigns": campaigns,
+        "_msgId": msg_id
+    })
+
+
+async def handle_campaign_setup_load(
+    room: Any,
+    websocket: Any,
+    data: Dict[str, Any],
+    manager: Any,
+    room_id: str,
+    user_id: str,
+    role: str,
+    name: str,
+) -> None:
+    """Handle campaign.setup.load - load a saved campaign."""
+    if role != "dm":
+        await websocket.send_json({"type": "error", "message": "DM only.", "_msgId": data.get("_msgId")})
+        return
+    
+    from .campaign_setup import load_campaign, generate_ai_dm_prompt_from_setup
+    
+    campaign_id = data.get("campaign_id")
+    msg_id = data.get("_msgId")
+    
+    if not campaign_id:
+        await websocket.send_json({
+            "type": "error",
+            "message": "No campaign ID provided.",
+            "_msgId": msg_id
+        })
+        return
+    
+    try:
+        campaign = load_campaign(campaign_id)
+        if not campaign:
+            await websocket.send_json({
+                "type": "error",
+                "message": "Campaign not found.",
+                "_msgId": msg_id
+            })
+            return
+        
+        # Store loaded campaign in room
+        room.campaign_setup = campaign
+        
+        # Generate AI prompt
+        ai_dm_prompt = generate_ai_dm_prompt_from_setup(campaign)
+        
+        await websocket.send_json({
+            "type": "campaign.setup.loaded",
+            "campaign_id": campaign_id,
+            "campaign_name": campaign.campaign_name,
+            "ai_prompt": ai_dm_prompt,
+            "message": f"Campaign '{campaign.campaign_name}' loaded successfully.",
+            "_msgId": msg_id
+        })
+        
+        # Broadcast to all players in room
+        await manager.broadcast(room_id, {
+            "type": "campaign.loaded",
+            "campaign_name": campaign.campaign_name,
+            "message": f"DM loaded campaign: {campaign.campaign_name}"
+        })
+    except Exception as e:
+        await websocket.send_json({
+            "type": "error",
+            "message": f"Failed to load campaign: {str(e)}",
+            "_msgId": msg_id
+        })
+
+
+async def handle_campaign_setup_delete(
+    room: Any,
+    websocket: Any,
+    data: Dict[str, Any],
+    manager: Any,
+    room_id: str,
+    user_id: str,
+    role: str,
+    name: str,
+) -> None:
+    """Handle campaign.setup.delete - delete a saved campaign."""
+    if role != "dm":
+        await websocket.send_json({"type": "error", "message": "DM only.", "_msgId": data.get("_msgId")})
+        return
+    
+    from .campaign_setup import delete_campaign
+    
+    campaign_id = data.get("campaign_id")
+    msg_id = data.get("_msgId")
+    
+    if not campaign_id:
+        await websocket.send_json({
+            "type": "error",
+            "message": "No campaign ID provided.",
+            "_msgId": msg_id
+        })
+        return
+    
+    try:
+        delete_campaign(campaign_id)
+        
+        await websocket.send_json({
+            "type": "campaign.setup.deleted",
+            "campaign_id": campaign_id,
+            "message": "Campaign deleted successfully.",
+            "_msgId": msg_id
+        })
+    except Exception as e:
+        await websocket.send_json({
+            "type": "error",
+            "message": f"Failed to delete campaign: {str(e)}",
+            "_msgId": msg_id
+        })
+
+
+# ============================================================================
+# CHARACTER HANDLERS
+# ============================================================================
+
+async def handle_character_create(
+    room: Any,
+    websocket: Any,
+    data: Dict[str, Any],
+    manager: Any,
+    room_id: str,
+    user_id: str,
+    role: str,
+    name: str,
+) -> None:
+    """Handle character.create - create a new character."""
+    from .character_system import create_character, save_character
+    
+    character_data = data.get("character_data", {})
+    msg_id = data.get("_msgId")
+    
+    if not character_data.get("character_name"):
+        await websocket.send_json({
+            "type": "error",
+            "message": "Character name is required",
+            "_msgId": msg_id
+        })
+        return
+    
+    try:
+        character = create_character(character_data, user_id)
+        character_id = save_character(character)
+        
+        await websocket.send_json({
+            "type": "character.created",
+            "character_id": character_id,
+            "character": character,
+            "message": f"Character '{character_data.get('character_name')}' created successfully.",
+            "_msgId": msg_id
+        })
+    except Exception as e:
+        await websocket.send_json({
+            "type": "error",
+            "message": f"Failed to create character: {str(e)}",
+            "_msgId": msg_id
+        })
+
+
+async def handle_character_list(
+    room: Any,
+    websocket: Any,
+    data: Dict[str, Any],
+    manager: Any,
+    room_id: str,
+    user_id: str,
+    role: str,
+    name: str,
+) -> None:
+    """Handle character.list - get all characters for player."""
+    from .character_system import list_characters
+    
+    msg_id = data.get("_msgId")
+    
+    try:
+        characters = list_characters(user_id)
+        
+        await websocket.send_json({
+            "type": "character.list_response",
+            "characters": characters,
+            "_msgId": msg_id
+        })
+    except Exception as e:
+        await websocket.send_json({
+            "type": "error",
+            "message": f"Failed to list characters: {str(e)}",
+            "_msgId": msg_id
+        })
+
+
+async def handle_character_load(
+    room: Any,
+    websocket: Any,
+    data: Dict[str, Any],
+    manager: Any,
+    room_id: str,
+    user_id: str,
+    role: str,
+    name: str,
+) -> None:
+    """Handle character.load - load a character."""
+    from .character_system import load_character
+    
+    character_id = data.get("character_id")
+    msg_id = data.get("_msgId")
+    
+    if not character_id:
+        await websocket.send_json({
+            "type": "error",
+            "message": "No character ID provided",
+            "_msgId": msg_id
+        })
+        return
+    
+    try:
+        character = load_character(character_id)
+        
+        if not character:
+            await websocket.send_json({
+                "type": "error",
+                "message": "Character not found",
+                "_msgId": msg_id
+            })
+            return
+        
+        # Store character in room
+        room.player_character = character
+        
+        # Broadcast to room
+        await manager.broadcast(room_id, {
+            "type": "character.loaded",
+            "character_id": character_id,
+            "character_name": character.get("character_name"),
+            "player_name": character.get("player_name"),
+            "message": f"{character.get('player_name')} loaded {character.get('character_name')}"
+        })
+        
+        await websocket.send_json({
+            "type": "character.loaded",
+            "character_id": character_id,
+            "character": character,
+            "message": "Character loaded successfully",
+            "_msgId": msg_id
+        })
+    except Exception as e:
+        await websocket.send_json({
+            "type": "error",
+            "message": f"Failed to load character: {str(e)}",
+            "_msgId": msg_id
+        })
+
+
+async def handle_character_delete(
+    room: Any,
+    websocket: Any,
+    data: Dict[str, Any],
+    manager: Any,
+    room_id: str,
+    user_id: str,
+    role: str,
+    name: str,
+) -> None:
+    """Handle character.delete - delete a character."""
+    from .character_system import delete_character
+    
+    character_id = data.get("character_id")
+    msg_id = data.get("_msgId")
+    
+    if not character_id:
+        await websocket.send_json({
+            "type": "error",
+            "message": "No character ID provided",
+            "_msgId": msg_id
+        })
+        return
+    
+    try:
+        delete_character(character_id)
+        
+        await websocket.send_json({
+            "type": "character.deleted",
+            "character_id": character_id,
+            "message": "Character deleted successfully",
+            "_msgId": msg_id
+        })
+    except Exception as e:
+        await websocket.send_json({
+            "type": "error",
+            "message": f"Failed to delete character: {str(e)}",
+            "_msgId": msg_id
+        })
+
+
 # ============================================================================
 # AI DM HANDLERS
 # ============================================================================
@@ -1508,6 +1828,15 @@ HANDLERS: Dict[str, Any] = {
     "campaign.setup.submit": handle_campaign_setup_submit_responses,
     "campaign.setup.get_current": handle_campaign_setup_get_current,
     "campaign.setup.update": handle_campaign_setup_update,
+    "campaign.setup.list": handle_campaign_setup_list,
+    "campaign.setup.load": handle_campaign_setup_load,
+    "campaign.setup.delete": handle_campaign_setup_delete,
+    
+    # Character domain
+    "character.create": handle_character_create,
+    "character.list": handle_character_list,
+    "character.load": handle_character_load,
+    "character.delete": handle_character_delete,
     
     # AI DM domain
     "ai.dm.setup": handle_ai_dm_setup,

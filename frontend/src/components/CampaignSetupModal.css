@@ -1,0 +1,153 @@
+.campaign-setup-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.campaign-setup-modal {
+  width: 100%;
+  max-width: 900px;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: slideUp 0.4s ease;
+  border-radius: 12px;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.success-message {
+  background: linear-gradient(135deg, #51cf66 0%, #2f9e44 100%);
+  border: 2px solid #51cf66;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  margin-bottom: 20px;
+  animation: slideIn 0.3s ease;
+}
+
+.success-message p {
+  color: white;
+  font-size: 1.2em;
+  font-weight: 600;
+  margin: 0;
+}
+
+.error-message {
+  background: rgba(255, 107, 107, 0.2);
+  border: 2px solid #ff6b6b;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+  animation: slideIn 0.3s ease;
+}
+
+.error-message p {
+  color: #ff9999;
+  font-weight: 500;
+  margin: 0;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.ai-prompt-display {
+  background: linear-gradient(135deg, #0b0f17 0%, #1a1f2e 100%);
+  border: 2px solid #2e415c;
+  border-radius: 12px;
+  padding: 30px;
+  margin-top: 20px;
+}
+
+.ai-prompt-display h3 {
+  color: #4da3ff;
+  margin: 0 0 15px 0;
+  font-size: 1.3em;
+}
+
+.ai-prompt-display pre {
+  background: rgba(42, 55, 77, 0.8);
+  border: 1px solid rgba(77, 163, 255, 0.3);
+  border-radius: 6px;
+  padding: 15px;
+  color: #a0b0c0;
+  overflow-x: auto;
+  font-size: 0.9em;
+  line-height: 1.6;
+  margin: 0;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+/* Scrollbar styling */
+.campaign-setup-modal-overlay::-webkit-scrollbar,
+.campaign-setup-modal::-webkit-scrollbar,
+.ai-prompt-display pre::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.campaign-setup-modal-overlay::-webkit-scrollbar-track,
+.campaign-setup-modal::-webkit-scrollbar-track,
+.ai-prompt-display pre::-webkit-scrollbar-track {
+  background: rgba(46, 65, 92, 0.3);
+  border-radius: 4px;
+}
+
+.campaign-setup-modal-overlay::-webkit-scrollbar-thumb,
+.campaign-setup-modal::-webkit-scrollbar-thumb,
+.ai-prompt-display pre::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #4da3ff 0%, #0fa3ff 100%);
+  border-radius: 4px;
+}
+
+.campaign-setup-modal-overlay::-webkit-scrollbar-thumb:hover,
+.campaign-setup-modal::-webkit-scrollbar-thumb:hover,
+.ai-prompt-display pre::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #0fa3ff 0%, #4da3ff 100%);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .campaign-setup-modal-overlay {
+    padding: 10px;
+  }
+
+  .campaign-setup-modal {
+    max-height: 95vh;
+  }
+}
