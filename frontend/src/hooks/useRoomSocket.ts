@@ -238,7 +238,7 @@ export function useRoomSocket() {
         if (msg.room?.grid) scene.setGridState(msg.room.grid);
         if (msg.room?.map_image_url) scene.setMapImageState(msg.room.map_image_url);
         if (msg.room?.tokens) tokens.setTokensState(msg.room.tokens);
-        if (msg.room?.lighting) scene.setLightingState(msg.room.lighting);
+        if (msg.room?.lighting) scene.setLighting(msg.room.lighting);
         if (msg.room?.inventories) inventory.setInventoriesState(msg.room.inventories);
         if (msg.room?.loot_bags) loot.setLootBagsState(msg.room.loot_bags);
         if (msg.chat_log) chat.setChatLogState(msg.chat_log);
@@ -303,6 +303,7 @@ export function useRoomSocket() {
     // Connection methods
     connect,
     disconnect,
+    send,
 
     // Chat domain
     chatLog: chat.chatLog,
@@ -317,7 +318,7 @@ export function useRoomSocket() {
     lighting: scene.lighting,
     updateGrid: scene.updateGrid,
     setMapImage: scene.setMapImage,
-    setLighting: scene.setLighting,
+    setLighting: scene.setLightingState,  // Use the WebSocket sender, not local state
 
     // Tokens domain
     tokens: tokens.tokens,
@@ -343,5 +344,12 @@ export function useRoomSocket() {
     distributeLoot: loot.distributeLoot,
     discardLoot: loot.discardLoot,
     requestLootSnapshot: loot.requestLootSnapshot,
+
+    // AI domain
+    generateNarration: (scene: string, context: string, tone: string) =>
+      send({ type: "ai.narration", scene_description: scene, context, tone }),
+    generateMap: (scene: string, style: string) =>
+      send({ type: "ai.map_generation", scene_description: scene, style }),
+    requestAIStatus: () => send({ type: "ai.status" }),
   };
 }

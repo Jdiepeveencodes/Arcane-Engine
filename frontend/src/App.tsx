@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback, memo } from "react";
 import "./App.css";
 import "./layout.css";
 
@@ -8,11 +8,11 @@ import DiceDock from "./components/DiceDock";
 import ChannelChat from "./components/ChannelChat";
 import MapPanelPixi from "./components/MapPanelPixi";
 import MapDMControls from "./components/MapDMControls";
+// import AIPanel from "./components/AIPanel"; // Temporarily disabled
 import InventoryPanel from "./components/InventoryPanel";
 import DMLootPanel from "./components/DMLootPanel";
 import LootBagPanel from "./components/LootBagPanel";
 import CharacterPanel from "./components/CharacterPanel";
-import RulesSync from "./components/RulesSync";
 
 import { useRoomSocket } from "./hooks/useRoomSocket";
 
@@ -32,7 +32,8 @@ export default function App() {
   const [diceMod, setDiceMod] = useState("0");
   const [dmPlayerView, setDmPlayerView] = useState(false);
   const [mapTab, setMapTab] = useState<"map" | "sheet" | "sheet2" | "spells">("map");
-  const [rulesStatus, setRulesStatus] = useState("rules: --");
+  const [rulesHasUpdate, setRulesHasUpdate] = useState(false);
+  const [rulesSyncing, setRulesSyncing] = useState(false);
 
   const pendingBatchRef = useRef<{ active: boolean; expectedResults: number }>({
     active: false,
@@ -63,39 +64,25 @@ export default function App() {
   }, [room.chatLog, room]);
 
   useEffect(() => {
-    let mounted = true;
+    // Simply show the update button on mount; user can click to sync if needed
+    setRulesHasUpdate(true);
+  }, []);
 
-    const loadRulesStatus = async () => {
-      try {
-        const res = await fetch("/api/rules/status");
-        if (!res.ok) throw new Error("rules status failed");
-        const data = await res.json();
-        const counts = data?.counts || {};
-        const lastSync = data?.last_sync || {};
-        const races = Number(counts.races || 0);
-        const feats = Number(counts.feats || 0);
-        const skills = Number(counts.skills || 0);
-        const attacks = Number(counts.attacks || 0);
-        const syncTimes = Object.values(lastSync)
-          .map((v: any) => (typeof v === "number" ? v : null))
-          .filter((v): v is number => typeof v === "number");
-        const latest = syncTimes.length ? Math.max(...syncTimes) : null;
-        const syncLabel = latest
-          ? new Date(latest * 1000).toISOString().replace("T", " ").slice(0, 16) + "Z"
-          : "--";
-        const label = `rules: r${races} f${feats} s${skills} a${attacks} | sync: ${syncLabel}`;
-        if (mounted) setRulesStatus(label);
-      } catch {
-        if (mounted) setRulesStatus("rules: n/a");
-      }
-    };
-
-    loadRulesStatus();
-    const intervalId = window.setInterval(loadRulesStatus, 60000);
-    return () => {
-      mounted = false;
-      window.clearInterval(intervalId);
-    };
+  const handleRulesSync = useCallback(async () => {
+    setRulesSyncing(true);
+    try {
+      const resp = await fetch("/api/rules/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kinds: ["races", "feats", "skills", "weapons", "attacks"] }),
+      });
+      if (!resp.ok) throw new Error("Sync failed");
+      setRulesHasUpdate(false);
+    } catch (err) {
+      console.error("Rules sync failed:", err);
+    } finally {
+      setRulesSyncing(false);
+    }
   }, []);
 
   async function createRoom() {
@@ -136,11 +123,16 @@ export default function App() {
 
   const isDM = room.role === "dm";
 
+  // Memoize grid to prevent MapPanelPixi from flickering on every render
+  const memoizedGrid = useCallback(() => room.grid, [room.grid.cols, room.grid.rows, room.grid.cell])();
+
   return (
     <>
       <TopBar
         status={room.status}
-        rulesStatus={rulesStatus}
+        rulesHasUpdate={rulesHasUpdate}
+        onRulesSync={handleRulesSync}
+        rulesSyncing={rulesSyncing}
         roomName={roomName}
         setRoomName={setRoomName}
         onCreateRoom={createRoom}
@@ -163,8 +155,6 @@ export default function App() {
             roomId={room.roomId}
           />
 
-          <RulesSync />
-
           {isDM && (
             <>
               <DMLootPanel
@@ -174,6 +164,12 @@ export default function App() {
                 lootStatus={room.lootStatus}
                 onGenerateLoot={room.dmGenerateLoot}
               />
+              {/* <AIPanel
+                connected={room.connected}
+                isDM={isDM}
+                onGenerateNarration={room.generateNarration}
+                onGenerateMap={room.generateMap}
+              /> */}
               <LootBagPanel
                 lootBags={room.lootBags}
                 members={room.members}
@@ -273,7 +269,7 @@ export default function App() {
               <div className="mapCanvasWrap">
                 <div className={`mapPane ${mapTab === "map" ? "active" : ""}`}>
                   <MapPanelPixi
-                    grid={room.grid}
+                    grid={memoizedGrid}
                     lighting={room.lighting}
                     mapImageUrl={room.mapImageUrl}
                     tokens={room.tokens}
@@ -281,7 +277,6 @@ export default function App() {
                     role={room.role}
                     youUserId={room.you?.user_id || ""}
                     onTokenMove={room.moveToken}
-                    forcePlayerView={isDM && dmPlayerView}
                   />
                 </div>
                 <div className={`mapPane ${mapTab === "map" ? "" : "active"}`}>
@@ -312,7 +307,7 @@ export default function App() {
                   setPlayerView={setDmPlayerView}
                   updateGrid={room.updateGrid}
                   setMapImage={room.setMapImage}
-                  setLighting={room.setLighting}
+                  onSendMessage={room.send}
                   addToken={room.addToken}
                   removeToken={room.removeToken}
                   updateToken={room.updateToken}

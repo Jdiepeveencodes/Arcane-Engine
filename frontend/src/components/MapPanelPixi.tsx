@@ -32,7 +32,6 @@ type Props = {
   role: string;
   youUserId: string;
   onTokenMove: (tokenId: string, x: number, y: number) => void;
-  forcePlayerView?: boolean;
 };
 
 const clamp = (n: number, a: number, b: number) => Math.max(a, Math.min(b, n));
@@ -47,7 +46,6 @@ export default function MapPanelPixi({
   mapImageUrl,
   map_image_url,
   lighting,
-  forcePlayerView,
 }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null);
 
@@ -63,21 +61,71 @@ export default function MapPanelPixi({
   const fogCtxRef = useRef<CanvasRenderingContext2D | null>(null);
   const revealCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const revealCtxRef = useRef<CanvasRenderingContext2D | null>(null);
+  const discoveredCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const discoveredCtxRef = useRef<CanvasRenderingContext2D | null>(null);
   const fogKeyRef = useRef<string>("");
+  const onTokenMoveRef = useRef(onTokenMove);
+  const tokensRef = useRef(tokens);
+  const tokenPosHashRef = useRef<string>("");
+  const youUserIdRef = useRef(youUserId);
+  const roleRef = useRef(role);
+  const sizeHashRef = useRef<string>("");
+  const fogConfigHashRef = useRef<string>("");
+  const [, setTokenPosChanged] = useState(0);
 
   const [imgStatus, setImgStatus] = useState<"idle" | "loading" | "ok" | "error">("idle");
+  const [showPlayerView, setShowPlayerView] = useState(false);
+  const [posChangeCount, setPosChangeCount] = useState(0);
+  const [sizeChangeCount, setSizeChangeCount] = useState(0);
+  const [fogConfigChangeCount, setFogConfigChangeCount] = useState(0);
+  
+  // Keep the refs up to date
+  useEffect(() => {
+    onTokenMoveRef.current = onTokenMove;
+    tokensRef.current = tokens;
+    youUserIdRef.current = youUserId;
+    roleRef.current = role;
+  }, [onTokenMove, tokens, youUserId, role]);
+
+  // Detect actual token position changes (not just array reference changes)
+  useEffect(() => {
+    if (!lighting?.fog_enabled) return;
+    const newHash = tokens?.map(t => `${t.id}:${Math.round(t.x)},${Math.round(t.y)}`).join('|') || '';
+    if (newHash !== tokenPosHashRef.current) {
+      tokenPosHashRef.current = newHash;
+      setPosChangeCount(c => c + 1);
+    }
+  }, [tokens, lighting?.fog_enabled]);
 
   const mapUrl = (mapImageUrl || map_image_url || "").trim();
 
   const safeGrid = useMemo(() => {
     return {
-      cols: clamp(Math.floor(grid?.cols ?? 20), 1, 50),
-      rows: clamp(Math.floor(grid?.rows ?? 20), 1, 50),
-      cell: clamp(Math.floor(grid?.cell ?? 32), 12, 128),
+      cols: clamp(Math.floor(grid?.cols ?? 100), 1, 256),
+      rows: clamp(Math.floor(grid?.rows ?? 100), 1, 256),
+      cell: clamp(Math.floor(grid?.cell ?? 20), 12, 128),
     };
   }, [grid]);
   const worldW = safeGrid.cols * safeGrid.cell;
   const worldH = safeGrid.rows * safeGrid.cell;
+
+  // Detect actual size changes (not just recalculations)
+  useEffect(() => {
+    const newSizeHash = `${worldW}x${worldH}`;
+    if (newSizeHash !== sizeHashRef.current) {
+      sizeHashRef.current = newSizeHash;
+      setSizeChangeCount(c => c + 1);
+    }
+  }, [worldW, worldH]);
+
+  // Detect actual fog config changes (not just object reference changes)
+  useEffect(() => {
+    const newFogHash = `${lighting?.fog_enabled}:${lighting?.darkness}:${lighting?.ambient_radius}`;
+    if (newFogHash !== fogConfigHashRef.current) {
+      fogConfigHashRef.current = newFogHash;
+      setFogConfigChangeCount(c => c + 1);
+    }
+  }, [lighting?.fog_enabled, lighting?.darkness, lighting?.ambient_radius]);
 
   const ownerNameById = useMemo(() => {
     const m = new Map<string, string>();
@@ -89,8 +137,11 @@ export default function MapPanelPixi({
     return m;
   }, [members]);
 
-  const canDrag = (t: Token) =>
-    role === "dm" || ((t.owner_user_id || "").trim() && (t.owner_user_id || "").trim() === youUserId);
+  const canDrag = (t: Token) => {
+    const isDM = roleRef.current === "dm";
+    const isOwner = (t.owner_user_id || "").trim() === youUserIdRef.current;
+    return isDM || isOwner;
+  };
 
   // ---------- INIT PIXI ONCE ----------
   useEffect(() => {
@@ -135,7 +186,7 @@ export default function MapPanelPixi({
       gridRef.current = gg;
       world.addChild(gg);
 
-      // token layers
+      // token layers (order matters: NPCs at bottom, fog in middle, players on top so always visible)
       const npcLayer = new PIXI.Container();
       npcLayerRef.current = npcLayer;
       world.addChild(npcLayer);
@@ -159,10 +210,17 @@ export default function MapPanelPixi({
       revealCanvas.height = fogCanvas.height;
       const revealCtx = revealCanvas.getContext("2d");
 
+      const discoveredCanvas = document.createElement("canvas");
+      discoveredCanvas.width = fogCanvas.width;
+      discoveredCanvas.height = fogCanvas.height;
+      const discoveredCtx = discoveredCanvas.getContext("2d");
+
       fogCanvasRef.current = fogCanvas;
       fogCtxRef.current = fogCtx;
       revealCanvasRef.current = revealCanvas;
       revealCtxRef.current = revealCtx;
+      discoveredCanvasRef.current = discoveredCanvas;
+      discoveredCtxRef.current = discoveredCtx;
 
       const fogSprite = new PIXI.Sprite(PIXI.Texture.from(fogCanvas));
       fogSprite.eventMode = "none";
@@ -193,6 +251,8 @@ export default function MapPanelPixi({
       fogCtxRef.current = null;
       revealCanvasRef.current = null;
       revealCtxRef.current = null;
+      discoveredCanvasRef.current = null;
+      discoveredCtxRef.current = null;
       fogKeyRef.current = "";
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -202,7 +262,7 @@ export default function MapPanelPixi({
     const app = appRef.current;
     if (!app || !app.renderer) return;
     app.renderer.resize(Math.max(1, worldW), Math.max(1, worldH));
-  }, [worldW, worldH]);
+  }, [sizeChangeCount]);
 
   // ---------- LOAD MAP IMAGE ----------
   useEffect(() => {
@@ -291,6 +351,7 @@ export default function MapPanelPixi({
     playerLayer.removeChildren();
 
     const { cols, rows, cell } = safeGrid;
+    const tokenList = tokensRef.current || [];
 
     // stack tokens on same square slightly offset so you can see them
     const buildStacks = (list: Token[]) => {
@@ -393,7 +454,7 @@ export default function MapPanelPixi({
         container.x = gx * cell + ndx;
         container.y = gy * cell + ndy;
 
-        if (moved) onTokenMove(t.id, gx, gy);
+        if (moved) onTokenMoveRef.current(t.id, gx, gy);
       };
 
       container.on("pointerup", finalize);
@@ -402,8 +463,8 @@ export default function MapPanelPixi({
       return container;
     };
 
-    const npcTokens = (tokens || []).filter((t) => t.kind !== "player");
-    const playerTokens = (tokens || []).filter((t) => t.kind === "player");
+    const npcTokens = (tokenList || []).filter((t) => t.kind !== "player");
+    const playerTokens = (tokenList || []).filter((t) => t.kind === "player");
 
     const npcStacks = buildStacks(npcTokens);
     for (const arr of npcStacks.values()) {
@@ -414,9 +475,18 @@ export default function MapPanelPixi({
     for (const arr of playerStacks.values()) {
       arr.forEach((t, idx) => playerLayer.addChild(makeToken(playerLayer, t, idx, arr.length)));
     }
-  }, [tokens, safeGrid, role, youUserId, onTokenMove]);
+  }, [safeGrid, tokens.length, posChangeCount]);
 
-  // ---------- FOG OF WAR ----------
+  // ---------- FOG OF WAR - VISIBILITY TOGGLE ----------
+  useEffect(() => {
+    const fogLayer = fogLayerRef.current as PIXI.Container | null;
+    if (!fogLayer) return;
+
+    const fogEnabled = !!lighting?.fog_enabled;
+    fogLayer.visible = fogEnabled;
+  }, [lighting?.fog_enabled]);
+
+  // ---------- FOG OF WAR - RENDER ON TOKEN MOVEMENT ----------
   useEffect(() => {
     const fogLayer = fogLayerRef.current as PIXI.Container | null;
     const fogSprite = fogSpriteRef.current as PIXI.Sprite | null;
@@ -427,11 +497,7 @@ export default function MapPanelPixi({
     if (!fogLayer || !fogSprite || !fogCanvas || !fogCtx || !revealCanvas || !revealCtx) return;
 
     const fogEnabled = !!lighting?.fog_enabled;
-    const isDM = role === "dm" && !forcePlayerView;
-    const shouldFog = fogEnabled && !isDM;
-
-    fogLayer.visible = shouldFog;
-    if (!shouldFog) return;
+    if (!fogEnabled) return;
 
     const { cols, rows, cell } = safeGrid;
     const w = cols * cell;
@@ -443,10 +509,13 @@ export default function MapPanelPixi({
       fogCanvas.height = Math.max(1, h);
       revealCanvas.width = fogCanvas.width;
       revealCanvas.height = fogCanvas.height;
+      discoveredCanvasRef.current.width = fogCanvas.width;
+      discoveredCanvasRef.current.height = fogCanvas.height;
       fogKeyRef.current = fogKey;
       fogSprite.width = w;
       fogSprite.height = h;
       if (revealCtx) revealCtx.clearRect(0, 0, w, h);
+      if (discoveredCtxRef.current) discoveredCtxRef.current.clearRect(0, 0, w, h);
     }
 
     const fogAlpha = 0.95;
@@ -454,11 +523,9 @@ export default function MapPanelPixi({
     const ambient = Math.max(0, Math.floor(lighting?.ambient_radius ?? 0));
 
     const holes: Array<{ x: number; y: number; r: number }> = [];
-    for (const t of tokens || []) {
-      const isOwner = (t.owner_user_id || "").trim() === youUserId;
-      const isSharedPlayer = !t.owner_user_id && t.kind === "player";
-      const isAnyPlayer = forcePlayerView && role === "dm" && t.kind === "player";
-      if (!isOwner && !isSharedPlayer && !isAnyPlayer) continue;
+    // Only player tokens carve vision holes in fog; NPCs and objects stay hidden under fog
+    for (const t of tokensRef.current || []) {
+      if (t.kind !== "player") continue;
 
       const baseVision = Math.max(1, Math.floor(t.vision_radius ?? 6));
       const hasDarkvision = !!t.darkvision;
@@ -491,12 +558,27 @@ export default function MapPanelPixi({
       revealCtx.fill();
     }
 
+    // Accumulate discovered areas in discovered canvas
+    const discoveredCtx = discoveredCtxRef.current;
+    if (discoveredCtx) {
+      discoveredCtx.globalCompositeOperation = "source-over";
+      discoveredCtx.fillStyle = "rgba(255,255,255,1)";
+      for (const hole of holes) {
+        discoveredCtx.beginPath();
+        discoveredCtx.arc(hole.x, hole.y, hole.r, 0, Math.PI * 2);
+        discoveredCtx.fill();
+      }
+    }
+
+    // Render fog based on view mode
+    const revealToUse = showPlayerView && discoveredCanvasRef.current ? discoveredCanvasRef.current : revealCanvas;
+
     fogCtx.globalCompositeOperation = "source-over";
     fogCtx.clearRect(0, 0, w, h);
     fogCtx.fillStyle = `rgba(5,7,11,${fogAlpha})`;
     fogCtx.fillRect(0, 0, w, h);
     fogCtx.globalCompositeOperation = "destination-out";
-    fogCtx.drawImage(revealCanvas, 0, 0);
+    fogCtx.drawImage(revealToUse, 0, 0);
     fogCtx.globalCompositeOperation = "source-over";
 
     const tex: any = fogSprite.texture;
@@ -506,7 +588,7 @@ export default function MapPanelPixi({
     } else if (typeof source.update === "function") {
       source.update();
     }
-  }, [lighting, tokens, safeGrid, role, youUserId, mapUrl, forcePlayerView]);
+  }, [posChangeCount, fogConfigChangeCount, safeGrid, mapUrl, showPlayerView]);
 
   const showPlaceholder = !mapUrl;
   const showError = !!mapUrl && imgStatus === "error";
@@ -519,6 +601,7 @@ export default function MapPanelPixi({
         height: worldH,
         position: "relative",
         background: "#0b0f17",
+        overflow: "auto",
       }}
     >
       {showPlaceholder ? (
@@ -558,6 +641,30 @@ export default function MapPanelPixi({
           <div style={{ marginTop: 6, fontSize: 12, opacity: 0.75, maxWidth: 420, lineHeight: 1.35 }}>
             Try a direct image URL ending in .png or .jpg (some hosts block via CORS).
           </div>
+        </div>
+      ) : null}
+
+      {role === "dm" && lighting?.fog_enabled ? (
+        <div
+          style={{
+            position: "absolute",
+            bottom: 16,
+            right: 16,
+            zIndex: 10,
+            background: "rgba(0,0,0,0.7)",
+            padding: "8px 12px",
+            borderRadius: "6px",
+            cursor: "pointer",
+            userSelect: "none",
+            fontSize: 12,
+            fontWeight: 600,
+            border: `2px solid ${showPlayerView ? "#4ade80" : "#888"}`,
+            color: showPlayerView ? "#4ade80" : "#aaa",
+          }}
+          onClick={() => setShowPlayerView(!showPlayerView)}
+          title="Toggle between full map and discovered areas only"
+        >
+          {showPlayerView ? "👁️ Player View" : "🗺️ Full Map"}
         </div>
       ) : null}
     </div>

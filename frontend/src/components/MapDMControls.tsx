@@ -15,7 +15,7 @@ type Props = {
 
   updateGrid: (g: Partial<GridState>) => void;
   setMapImage: (url: string) => void;
-  setLighting: (lighting: LightingState) => void;
+  onSendMessage: (msg: any) => void;
   addToken: (t: Partial<Token>) => void;
   removeToken: (id: string) => void;
   updateToken: (id: string, patch: Partial<Token>) => void;
@@ -24,7 +24,7 @@ type Props = {
 const kindOptions: TokenKind[] = ["player", "npc", "object"];
 
 export default function MapDMControls(props: Props) {
-  const { isDM, roomId, members, grid, mapImageUrl, tokens, lighting, playerView, setPlayerView, updateGrid, setMapImage, setLighting, addToken, removeToken, updateToken } = props;
+  const { isDM, roomId, members, grid, mapImageUrl, tokens, lighting, playerView, setPlayerView, updateGrid, setMapImage, onSendMessage, addToken, removeToken, updateToken } = props;
 
   const players = useMemo(() => members.filter((m) => m.role === "player"), [members]);
 
@@ -38,11 +38,12 @@ export default function MapDMControls(props: Props) {
   const [darkness, setDarkness] = useState(!!lighting?.darkness);
   const [ambientRadius, setAmbientRadius] = useState(String(lighting?.ambient_radius ?? 0));
 
+  // Only sync from props on initial mount or if props actually changed significantly
   useEffect(() => {
     setFogEnabled(!!lighting?.fog_enabled);
     setDarkness(!!lighting?.darkness);
     setAmbientRadius(String(lighting?.ambient_radius ?? 0));
-  }, [lighting?.fog_enabled, lighting?.darkness, lighting?.ambient_radius]);
+  }, []);
 
   // “AI Map Generator” (currently placeholder backend)
   const [prompt, setPrompt] = useState("Small cave entrance with a winding tunnel and a chamber.");
@@ -80,8 +81,8 @@ export default function MapDMControls(props: Props) {
 
   const applyGrid = () => {
     updateGrid({
-      cols: clamp(toInt(cols, grid.cols), 1, 50),
-      rows: clamp(toInt(rows, grid.rows), 1, 50),
+      cols: clamp(toInt(cols, grid.cols), 1, 100),
+      rows: clamp(toInt(rows, grid.rows), 1, 100),
       cell: clamp(toInt(cell, grid.cell), 12, 128),
     });
   };
@@ -99,10 +100,13 @@ export default function MapDMControls(props: Props) {
   };
 
   const applyLighting = () => {
-    setLighting({
-      fog_enabled: !!fogEnabled,
-      darkness: !!darkness,
-      ambient_radius: clamp(toInt(ambientRadius, 0), 0, 50),
+    onSendMessage({
+      type: "map.lighting.set",
+      lighting: {
+        fog_enabled: !!fogEnabled,
+        darkness: !!darkness,
+        ambient_radius: clamp(toInt(ambientRadius, 0), 0, 50),
+      }
     });
   };
 
@@ -121,8 +125,8 @@ export default function MapDMControls(props: Props) {
         body: JSON.stringify({
           prompt: (prompt || "").slice(0, 800),
           theme: (theme || "Fantasy").slice(0, 40),
-          cols: clamp(toInt(cols, grid.cols), 1, 50),
-          rows: clamp(toInt(rows, grid.rows), 1, 50),
+          cols: clamp(toInt(cols, grid.cols), 1, 100),
+          rows: clamp(toInt(rows, grid.rows), 1, 100),
           cell: clamp(toInt(cell, grid.cell), 12, 128),
         }),
       });
@@ -193,11 +197,11 @@ export default function MapDMControls(props: Props) {
       {/* Grid */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 10 }}>
         <label style={{ fontSize: 12, opacity: 0.8 }}>
-          Cols (≤50)
+          Cols (&lt;100)
           <input value={cols} onChange={(e) => setCols(e.target.value)} style={{ width: "100%" }} />
         </label>
         <label style={{ fontSize: 12, opacity: 0.8 }}>
-          Rows (≤50)
+          Rows (&lt;100)
           <input value={rows} onChange={(e) => setRows(e.target.value)} style={{ width: "100%" }} />
         </label>
         <label style={{ fontSize: 12, opacity: 0.8 }}>
@@ -329,9 +333,9 @@ export default function MapDMControls(props: Props) {
           Vision radius
           <input value={newVision} onChange={(e) => setNewVision(e.target.value)} />
         </label>
-        <label style={{ fontSize: 12, opacity: 0.8, display: "flex", gap: 8, alignItems: "center" }}>
+        <label style={{ fontSize: 12, opacity: 0.8, display: "flex", gap: 8, alignItems: "center", cursor: "pointer" }} title="5e Darkvision: Allows vision up to 60ft in darkness. Common for dwarves, elves, and many creatures.">
           <input type="checkbox" checked={newDarkvision} onChange={(e) => setNewDarkvision(e.target.checked)} />
-          Darkvision
+          Darkvision (60ft)
         </label>
 
         {newKind === "player" ? (

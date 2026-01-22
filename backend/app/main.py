@@ -286,8 +286,8 @@ def db_upsert_room(room: Any):
             now,
             (getattr(room, "scene", {}) or {}).get("title", ""),
             (getattr(room, "scene", {}) or {}).get("text", ""),
-            (getattr(room, "grid", {}) or {}).get("cols", 50),
-            (getattr(room, "grid", {}) or {}).get("rows", 50),
+            (getattr(room, "grid", {}) or {}).get("cols", 100),
+            (getattr(room, "grid", {}) or {}).get("rows", 100),
             (getattr(room, "grid", {}) or {}).get("cell", 20),
             getattr(room, "map_image_url", "") or "",
         ),
@@ -303,7 +303,7 @@ def db_load_room(room_id: str) -> Any | None:
     room = Room(room_id=row["room_id"], name=row["name"])
     room.created_at = row["created_at"] or time.time()
     room.scene = {"title": row["scene_title"] or "", "text": row["scene_text"] or ""}
-    room.grid = {"cols": row["grid_cols"] or 50, "rows": row["grid_rows"] or 50, "cell": row["grid_cell"] or 20}
+    room.grid = {"cols": row["grid_cols"] or 100, "rows": row["grid_rows"] or 100, "cell": row["grid_cell"] or 20}
     room.map_image_url = row["map_image_url"] or ""
     return room
 
@@ -682,23 +682,84 @@ def debug_where():
 
 @app.post("/api/rules/sync")
 def api_rules_sync(req: RulesSyncReq):
+    _append_loot_debug("[api] POST /api/rules/sync called")
+    print("[api] POST /api/rules/sync called", flush=True)
     counts = rules5e_data.sync_open5e(db(), req.kinds)
     return {"synced": counts}
 
 
 @app.get("/api/rules/status")
 def api_rules_status():
+    _append_loot_debug("[api] GET /api/rules/status called")
+    print("[api] GET /api/rules/status called", flush=True)
     return rules5e_data.rules_status(db())
 
 
 @app.get("/api/rules/{kind}")
 def api_rules_list(kind: str, full: int | None = None, limit: int | None = None):
+    _append_loot_debug(f"[api] GET /api/rules/{kind} called")
+    print(f"[api] GET /api/rules/{kind} called", flush=True)
     return rules5e_data.list_rules(db(), kind, full=bool(full), limit=limit)
 
 
-# ------------------------------------------------------------
-# Helpers
-# ------------------------------------------------------------
+# ============================================================================
+# AI ENDPOINTS
+# ============================================================================
+
+# ============================================================================
+# AI ENDPOINTS (Temporarily Disabled - Backend Startup)
+# ============================================================================
+# These will be enabled after the AI service is properly configured
+
+# @app.get("/api/ai/status")
+# def api_ai_status():
+#     """Get AI service status and configuration."""
+#     from .ai import get_ai_status
+#     return get_ai_status()
+#
+#
+# @app.post("/api/ai/narration")
+# def api_ai_narration(scene_description: str, context: str = "", style: str = "epic"):
+#     """Generate narration for a scene."""
+#     from .ai import generate_scene_narration
+#     
+#     if not scene_description:
+#         return {"error": "scene_description required"}
+#     
+#     narration = generate_scene_narration(
+#         scene_description=scene_description,
+#         context=context,
+#         tone=style,
+#     )
+#     
+#     if not narration:
+#         return {"error": "Failed to generate narration. Check AI configuration."}
+#     
+#     return {"narration": narration}
+#
+#
+# @app.post("/api/ai/map")
+# def api_ai_map(scene_description: str, style: str = "fantasy dungeon"):
+#     """Generate map image from scene description."""
+#     from .ai import generate_map_from_description
+#     
+#     if not scene_description:
+#         return {"error": "scene_description required"}
+#     
+#     image_url = generate_map_from_description(
+#         scene_description=scene_description,
+#         style=style,
+#     )
+#     
+#     if not image_url:
+#         return {"error": "Failed to generate map. Check AI configuration."}
+#     
+#     return {"image_url": image_url}
+
+
+# ============================================================================
+# HELPERS
+# ============================================================================
 def clamp_int(x: Any, lo: int, hi: int, default: int) -> int:
     try:
         v = int(x)
@@ -1093,16 +1154,16 @@ async def _handle_map_generate(room_id: str, req: MapGenerateReq) -> MapGenerate
         raise HTTPException(status_code=404, detail="Room not found")
 
     if not hasattr(room, "grid") or not isinstance(room.grid, dict):
-        room.grid = {"cols": 50, "rows": 50, "cell": 20}
+        room.grid = {"cols": 100, "rows": 100, "cell": 20}
 
     if req.cols is not None:
-        room.grid["cols"] = clamp_int(req.cols, 1, 50, 50)
+        room.grid["cols"] = clamp_int(req.cols, 1, 100, 100)
     else:
-        room.grid["cols"] = clamp_int(room.grid.get("cols"), 1, 50, 50)
+        room.grid["cols"] = clamp_int(room.grid.get("cols"), 1, 100, 100)
     if req.rows is not None:
-        room.grid["rows"] = clamp_int(req.rows, 1, 50, 50)
+        room.grid["rows"] = clamp_int(req.rows, 1, 100, 100)
     else:
-        room.grid["rows"] = clamp_int(room.grid.get("rows"), 1, 50, 50)
+        room.grid["rows"] = clamp_int(room.grid.get("rows"), 1, 100, 100)
     if req.cell is not None:
         room.grid["cell"] = clamp_int(req.cell, 8, 128, 20)
     else:
@@ -1180,9 +1241,9 @@ async def ws_room(websocket: WebSocket, room_id: str, name: str, role: str):
 
     # map fields
     if not hasattr(room, "grid") or not isinstance(room.grid, dict):
-        room.grid = {"cols": 50, "rows": 50, "cell": 20}
-    room.grid["cols"] = clamp_int(room.grid.get("cols"), 1, 50, 50)
-    room.grid["rows"] = clamp_int(room.grid.get("rows"), 1, 50, 50)
+        room.grid = {"cols": 100, "rows": 100, "cell": 20}
+    room.grid["cols"] = clamp_int(room.grid.get("cols"), 1, 100, 100)
+    room.grid["rows"] = clamp_int(room.grid.get("rows"), 1, 100, 100)
     room.grid["cell"] = clamp_int(room.grid.get("cell"), 8, 128, 20)
     if not hasattr(room, "map_image_url"):
         room.map_image_url = ""
@@ -1202,8 +1263,8 @@ async def ws_room(websocket: WebSocket, room_id: str, name: str, role: str):
     if role == "player":
         if not hasattr(room, "tokens") or not isinstance(room.tokens, list):
             room.tokens = []
-        cols = max(1, int(room.grid.get("cols", 50)))
-        rows = max(1, int(room.grid.get("rows", 50)))
+        cols = max(1, int(room.grid.get("cols", 100)))
+        rows = max(1, int(room.grid.get("rows", 100)))
         idx = len([t for t in room.tokens if t.get("kind") == "player"])
         x = idx % cols
         y = min(rows - 1, idx // cols)
@@ -1223,7 +1284,7 @@ async def ws_room(websocket: WebSocket, room_id: str, name: str, role: str):
     try:
         members = manager.get_members(room_id)
         scene = getattr(room, "scene", {"title": "", "text": ""})
-        grid = getattr(room, "grid", {"cols": 50, "rows": 50, "cell": 20})
+        grid = getattr(room, "grid", {"cols": 100, "rows": 100, "cell": 20})
         map_url = getattr(room, "map_image_url", "") or ""
         tokens = getattr(room, "tokens", [])
         

@@ -14,7 +14,6 @@ export default function RulesSync() {
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedKinds, setSelectedKinds] = useState<Set<string>>(new Set(["races", "feats", "skills", "weapons"]));
 
   const rulesKinds = ["races", "feats", "skills", "weapons", "attacks"];
 
@@ -34,21 +33,19 @@ export default function RulesSync() {
     }
   };
 
-  // Manual sync
+  // Manual sync - sync all kinds
   const handleSync = async () => {
     setSyncing(true);
     setError(null);
     try {
-      const kinds = Array.from(selectedKinds);
       const resp = await fetch("/api/rules/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kinds }),
+        body: JSON.stringify({ kinds: rulesKinds }),
       });
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const result: SyncResult = await resp.json();
       
-      // Update status immediately
+      // Update status after sync completes
       await new Promise(r => setTimeout(r, 500));
       await fetchStatus();
       setError(null);
@@ -65,16 +62,6 @@ export default function RulesSync() {
     const interval = setInterval(fetchStatus, 60000); // Refresh every minute
     return () => clearInterval(interval);
   }, []);
-
-  const toggleKind = (kind: string) => {
-    const next = new Set(selectedKinds);
-    if (next.has(kind)) {
-      next.delete(kind);
-    } else {
-      next.add(kind);
-    }
-    setSelectedKinds(next);
-  };
 
   const formatTime = (timestamp: number | null) => {
     if (!timestamp) return "Never";
@@ -107,8 +94,24 @@ export default function RulesSync() {
                 <tr key={kind} style={{ borderBottom: "1px solid #ddd" }}>
                   <td style={{ padding: "8px" }}>{kind}</td>
                   <td style={{ textAlign: "center", padding: "8px" }}>{status.counts[kind] || 0}</td>
-                  <td style={{ padding: "8px", fontSize: "0.85em", color: "#666" }}>
-                    {formatTime(status.last_sync[kind])}
+                  <td style={{ padding: "8px", textAlign: "center" }}>
+                    <button
+                      onClick={() => handleSync()}
+                      disabled={syncing}
+                      title={`Update ${kind}. Last sync: ${formatTime(status.last_sync[kind])}`}
+                      style={{
+                        padding: "4px 8px",
+                        backgroundColor: "#4CAF50",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "3px",
+                        cursor: syncing ? "not-allowed" : "pointer",
+                        fontSize: "11px",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      ↻
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -116,41 +119,6 @@ export default function RulesSync() {
           </table>
         </div>
       ) : null}
-
-      {/* Manual Sync */}
-      <div style={{ marginBottom: "16px", padding: "12px", backgroundColor: "#fff", borderRadius: "4px" }}>
-        <h4 style={{ marginTop: 0 }}>Manual Sync</h4>
-        <div style={{ marginBottom: "12px" }}>
-          {rulesKinds.map((kind) => (
-            <label key={kind} style={{ display: "block", marginBottom: "8px", cursor: "pointer" }}>
-              <input
-                type="checkbox"
-                checked={selectedKinds.has(kind)}
-                onChange={() => toggleKind(kind)}
-                disabled={syncing}
-                style={{ marginRight: "8px" }}
-              />
-              {kind}
-            </label>
-          ))}
-        </div>
-        <button
-          onClick={handleSync}
-          disabled={syncing || selectedKinds.size === 0}
-          style={{
-            padding: "10px 16px",
-            backgroundColor: syncing ? "#999" : "#4CAF50",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            cursor: syncing ? "not-allowed" : "pointer",
-            fontSize: "14px",
-            fontWeight: "bold",
-          }}
-        >
-          {syncing ? "Syncing..." : `Sync Selected (${selectedKinds.size})`}
-        </button>
-      </div>
 
       {/* Refresh Button */}
       <button

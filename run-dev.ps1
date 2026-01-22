@@ -41,8 +41,8 @@ Set-Location -LiteralPath '$repoRoot'
 # --- Frontend command ---
 $frontCmd = @"
 Set-Location -LiteralPath '$frontDir'
-$env:VITE_BACKEND_URL = '$backendUrl'
-npm run dev
+`$env:VITE_BACKEND_URL = '$backendUrl'
+npm run dev -- --host
 "@
 
 Write-Info "Starting backend (port 8000) in a new window..."
